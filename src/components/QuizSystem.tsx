@@ -1,17 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
+  Download,
+  ExternalLink,
   FileCheck2,
-  ListChecks,
+  FileSpreadsheet,
+  Link2,
   Play,
   Plus,
   Trash2,
+  Upload,
   XCircle,
 } from 'lucide-react';
+import { getKelasOptionsForProgram } from '../data/seedData';
 import {
   Learner,
   LearningMode,
@@ -33,8 +40,14 @@ interface QuizSystemProps {
   preselectedLearnerId?: string | null;
   preselectedQuizId?: string | null;
   onAddQuiz: (quiz: Quiz) => void;
+  onAddQuestionToQuiz: (quizId: string, question: QuizQuestion) => void;
+  onBulkAddQuestionsToQuiz: (
+    quizId: string,
+    questions: QuizQuestion[]
+  ) => void;
   onDeleteQuiz: (quizId: string) => void;
   onSubmitAttempt: (attempt: QuizAttempt) => void;
+  onOpenStandaloneExam: (kodePaket: string) => void;
 }
 
 function formatClock(totalSeconds: number): string {
@@ -43,119 +56,231 @@ function formatClock(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function generateUniqueCode(mapel: string): string {
+  const prefix = (mapel.replace(/[^a-zA-Z]/g, '').toUpperCase() || 'PKT').slice(
+    0,
+    3
+  );
+  const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+  return `${prefix}${rand}`;
+}
+
 export const QuizSystem: React.FC<QuizSystemProps> = ({
   institutionId,
   learners,
   modules,
   quizzes,
   attempts,
-  initialTab = 'pengerjaan',
+  initialTab = 'buat-soal',
   preselectedLearnerId,
   preselectedQuizId,
   onAddQuiz,
+  onAddQuestionToQuiz,
+  onBulkAddQuestionsToQuiz,
   onDeleteQuiz,
   onSubmitAttempt,
+  onOpenStandaloneExam,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'buat-soal' | 'pengerjaan' | 'hasil'
   >(initialTab);
 
-  // --- TAB 1: QUIZ BUILDER STATE ---
+  // --- PANEL TUTOR STATE ---
   const [judul, setJudul] = useState('');
   const [mataPelajaran, setMataPelajaran] = useState('');
   const [program, setProgram] = useState<ProgramType | 'Semua Program'>(
-    'Semua Program'
+    'Paket C'
   );
+  const [kelas, setKelas] = useState('Kelas 12');
   const [moduleId, setModuleId] = useState<string>(modules[0]?.id || '');
   const [modePembelajaran, setModePembelajaran] =
     useState<LearningMode>('Tatap Muka');
   const [targetNilai, setTargetNilai] = useState(75);
-  const [durasiMenit, setDurasiMenit] = useState(15);
+  const [durasiMenit, setDurasiMenit] = useState(30);
   const [tutorPembuat, setTutorPembuat] = useState('Drs. Hendra Kusuma, M.Pd.');
-  const [draftQuestions, setDraftQuestions] = useState<QuizQuestion[]>([
-    {
-      id: `Q-${Date.now()}-1`,
-      pertanyaan: '',
-      pilihan: ['', '', '', ''],
-      kunciJawaban: 0,
-      bobot: 25,
-      pembahasan: '',
-    },
-  ]);
 
-  const addDraftQuestion = () => {
-    setDraftQuestions((prev) => [
-      ...prev,
-      {
-        id: `Q-${Date.now()}-${prev.length + 1}`,
-        pertanyaan: '',
-        pilihan: ['', '', '', ''],
-        kunciJawaban: 0,
-        bobot: 25,
-        pembahasan: '',
-      },
-    ]);
-  };
+  // Import Massal Semicolon CSV/Textarea State
+  const [bulkQuizId, setBulkQuizId] = useState<string>(quizzes[0]?.id || '');
+  const [bulkText, setBulkText] = useState('');
+  const [bulkStatusMsg, setBulkStatusMsg] = useState<string | null>(null);
 
-  const updateDraftQuestion = (
-    idx: number,
-    patch: Partial<QuizQuestion>
-  ) => {
-    setDraftQuestions((prev) =>
-      prev.map((q, i) => (i === idx ? { ...q, ...patch } : q))
-    );
-  };
+  // Tambah Soal Satuan State
+  const [singleQuizId, setSingleQuizId] = useState<string>(
+    quizzes[0]?.id || ''
+  );
+  const [qText, setQText] = useState('');
+  const [opsiA, setOpsiA] = useState('');
+  const [opsiB, setOpsiB] = useState('');
+  const [opsiC, setOpsiC] = useState('');
+  const [opsiD, setOpsiD] = useState('');
+  const [kunciLetter, setKunciLetter] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [qPembahasan, setQPembahasan] = useState('');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const updateDraftOption = (qIdx: number, optIdx: number, val: string) => {
-    setDraftQuestions((prev) =>
-      prev.map((q, i) => {
-        if (i !== qIdx) return q;
-        const nextPilihan = [...q.pilihan] as [string, string, string, string];
-        nextPilihan[optIdx] = val;
-        return { ...q, pilihan: nextPilihan };
-      })
-    );
-  };
-
-  const handleCreateQuiz = (e: React.FormEvent) => {
-    e.preventDefault();
-    const validQuestions = draftQuestions.filter(
-      (q) => q.pertanyaan.trim() && q.pilihan.every((p) => p.trim())
-    );
-    if (!judul.trim() || !mataPelajaran.trim() || validQuestions.length === 0) {
-      return;
+  useEffect(() => {
+    if (quizzes.length > 0 && !quizzes.some((q) => q.id === bulkQuizId)) {
+      setBulkQuizId(quizzes[0].id);
     }
+    if (quizzes.length > 0 && !quizzes.some((q) => q.id === singleQuizId)) {
+      setSingleQuizId(quizzes[0].id);
+    }
+  }, [quizzes, bulkQuizId, singleQuizId]);
 
+  const handleCreatePacket = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!judul.trim() || !mataPelajaran.trim()) return;
+    const kodePaket = generateUniqueCode(mataPelajaran);
     const newQuiz: Quiz = {
       id: `QZ-${Date.now().toString().slice(-5)}`,
       institutionId,
+      kodePaket,
       moduleId: moduleId || undefined,
       judul: judul.trim(),
       mataPelajaran: mataPelajaran.trim(),
       program,
+      kelas,
       modePembelajaran,
       targetNilai,
       durasiMenit,
       tutorPembuat,
       tanggalDibuat: new Date().toISOString().slice(0, 10),
-      soal: validQuestions,
+      soal: [],
     };
-
     onAddQuiz(newQuiz);
+    setBulkQuizId(newQuiz.id);
+    setSingleQuizId(newQuiz.id);
     setJudul('');
     setMataPelajaran('');
-    setDraftQuestions([
-      {
-        id: `Q-${Date.now()}-1`,
-        pertanyaan: '',
-        pilihan: ['', '', '', ''],
-        kunciJawaban: 0,
-        bobot: 25,
-        pembahasan: '',
-      },
-    ]);
-    setSelectedQuizId(newQuiz.id);
-    setActiveTab('pengerjaan');
+  };
+
+  const handleDownloadBulkTemplate = () => {
+    const template = [
+      'Pertanyaan;Opsi A;Opsi B;Opsi C;Opsi D;Kunci;Pembahasan',
+      'Hasil dari 25% dari Rp400.000 adalah...;Rp80.000;Rp100.000;Rp120.000;Rp150.000;B;25/100 x 400.000 = Rp100.000',
+      'Fungsi Google Sheets untuk menjumlahkan dengan syarat tertentu adalah...;SUM;COUNT;SUMIF;AVERAGE;C;SUMIF menjumlahkan rentang berdasarkan kriteria',
+    ].join('\n');
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Template_Import_Soal_PKBM.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFillBulkExample = () => {
+    setBulkText(
+      [
+        'Hasil dari 25% dari Rp400.000 adalah...;Rp80.000;Rp100.000;Rp120.000;Rp150.000;B;25/100 x 400.000 = Rp100.000',
+        'Dalam penyusunan laporan resmi lembaga, kalimat yang dipakai harus bersifat...;Lugas dan baku;Puitis;Ambigu;Hiperbolis;A;Laporan resmi menuntut bahasa baku dan lugas sesuai EYD V',
+      ].join('\n')
+    );
+  };
+
+  const handleUploadBulkFile = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const text = await file.text();
+    setBulkText(text);
+  };
+
+  const handleImportBulk = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkQuizId || !bulkText.trim()) return;
+    const lines = bulkText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const parsed: QuizQuestion[] = [];
+    for (const line of lines) {
+      if (line.toLowerCase().startsWith('pertanyaan;')) continue;
+      const parts = line.split(';').map((p) => p.trim());
+      if (parts.length < 6) continue;
+      const [pert, a, b, c, d, keyRaw, pemb = ''] = parts;
+      const keyChar = keyRaw.toUpperCase().charAt(0);
+      const keyIdx =
+        keyChar === 'A'
+          ? 0
+          : keyChar === 'B'
+          ? 1
+          : keyChar === 'C'
+          ? 2
+          : keyChar === 'D'
+          ? 3
+          : 0;
+      parsed.push({
+        id: `Q-IMP-${Date.now()}-${parsed.length + 1}`,
+        pertanyaan: pert,
+        pilihan: [a, b, c, d],
+        kunciJawaban: keyIdx,
+        bobot: 20,
+        pembahasan: pemb,
+      });
+    }
+
+    if (parsed.length === 0) {
+      setBulkStatusMsg(
+        'Format tidak valid. Gunakan pemisah titik koma (;): Pertanyaan;Opsi A;Opsi B;Opsi C;Opsi D;Kunci(A/B/C/D);Pembahasan'
+      );
+      return;
+    }
+
+    onBulkAddQuestionsToQuiz(bulkQuizId, parsed);
+    setBulkStatusMsg(
+      `Berhasil mengimpor ${parsed.length} butir soal ke paket soal terpilih.`
+    );
+    setBulkText('');
+  };
+
+  const handleAddSingleQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !singleQuizId ||
+      !qText.trim() ||
+      !opsiA.trim() ||
+      !opsiB.trim() ||
+      !opsiC.trim() ||
+      !opsiD.trim()
+    ) {
+      return;
+    }
+    const keyMap = { A: 0, B: 1, C: 2, D: 3 } as const;
+    onAddQuestionToQuiz(singleQuizId, {
+      id: `Q-${Date.now()}`,
+      pertanyaan: qText.trim(),
+      pilihan: [opsiA.trim(), opsiB.trim(), opsiC.trim(), opsiD.trim()],
+      kunciJawaban: keyMap[kunciLetter],
+      bobot: 25,
+      pembahasan: qPembahasan.trim(),
+    });
+    setQText('');
+    setOpsiA('');
+    setOpsiB('');
+    setOpsiC('');
+    setOpsiD('');
+    setQPembahasan('');
+  };
+
+  const buildShortLink = (kodePaket: string) => {
+    const origin =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://pkbmdigital.sch.id';
+    return `${origin}/?ujian=${encodeURIComponent(kodePaket)}`;
+  };
+
+  const handleCopyShortLink = async (kodePaket: string) => {
+    try {
+      await navigator.clipboard.writeText(buildShortLink(kodePaket));
+      setCopiedCode(kodePaket);
+      window.setTimeout(() => setCopiedCode(null), 2500);
+    } catch {
+      // ignore clipboard errors
+    }
   };
 
   // --- TAB 2: LIVE TIMED QUIZ RUNNER STATE ---
@@ -189,7 +314,10 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
   }, [preselectedQuizId]);
 
   useEffect(() => {
-    if (learners.length > 0 && !learners.some((l) => l.id === selectedLearnerId)) {
+    if (
+      learners.length > 0 &&
+      !learners.some((l) => l.id === selectedLearnerId)
+    ) {
       setSelectedLearnerId(learners[0].id);
     }
   }, [learners, selectedLearnerId]);
@@ -317,46 +445,46 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
   return (
     <div className="space-y-6">
       {/* Header + Sub-tabs */}
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-500">
-            Soal Modular & Remidial Otomatis · Kunci Jawaban Otomatis · Pelacakan Durasi Real-Time
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Bank Soal CBT, Short Link Ujian Mandiri (?ujian=KODE), Import Massal CSV (;) & Stopwatch Real-Time
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Evaluasi Soal & Kompetensi Individu
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Bank Soal & Ujian CBT Digital
           </h1>
         </div>
 
-        <div className="inline-flex rounded-lg bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('pengerjaan')}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              activeTab === 'pengerjaan'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Halaman Pengerjaan Soal
-          </button>
+        <div className="inline-flex flex-wrap rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
           <button
             type="button"
             onClick={() => setActiveTab('buat-soal')}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'buat-soal'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
             }`}
           >
-            Buat Soal & Bank Soal ({quizzes.length})
+            Panel Tutor & Bank Soal ({quizzes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pengerjaan')}
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
+              activeTab === 'pengerjaan'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
+            }`}
+          >
+            Ruang Ujian / Simulasi Portal
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('hasil')}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
               activeTab === 'hasil'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400'
             }`}
           >
             Hasil Individu ({attempts.length})
@@ -364,49 +492,516 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
         </div>
       </div>
 
-      {/* TAB 2: REAL-TIME TIMED ASSESSMENT RUNNER */}
+      {/* TAB 1: PANEL TUTOR (PAKET SOAL + SHORT LINK + IMPORT MASSAL + SOAL SATUAN) */}
+      {activeTab === 'buat-soal' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Left Column: 1. Buat Paket Soal & 2. Import Soal Massal */}
+          <div className="space-y-6 lg:col-span-5">
+            {/* 1. Buat Paket Soal Baru */}
+            <form
+              onSubmit={handleCreatePacket}
+              className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 text-xs"
+            >
+              <h2 className="border-b border-slate-200 pb-2.5 text-base font-bold text-slate-900 dark:border-slate-800 dark:text-slate-100">
+                1. Buat Paket Soal Baru & Short Link
+              </h2>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Jenjang Sasaran
+                  </label>
+                  <select
+                    value={program}
+                    onChange={(e) => {
+                      const p = e.target.value as ProgramType | 'Semua Program';
+                      setProgram(p);
+                      if (p !== 'Semua Program') {
+                        const opts = getKelasOptionsForProgram(p);
+                        if (opts.length > 0) setKelas(opts[opts.length - 1]);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <option value="Paket A">Paket A (SD)</option>
+                    <option value="Paket B">Paket B (SMP)</option>
+                    <option value="Paket C">Paket C (SMA)</option>
+                    <option value="Kursus Vokasi">Kursus Vokasi</option>
+                    <option value="Semua Program">Semua Program</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Kelas
+                  </label>
+                  <select
+                    value={kelas}
+                    onChange={(e) => setKelas(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    {getKelasOptionsForProgram(program).map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                  Mata Pelajaran *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={mataPelajaran}
+                  onChange={(e) => setMataPelajaran(e.target.value)}
+                  placeholder="Mis. Matematika / Bahasa Indonesia"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                  Judul Paket Ujian / Evaluasi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={judul}
+                  onChange={(e) => setJudul(e.target.value)}
+                  placeholder="Mis. Ujian Modul 2 Semester Ganjil"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Durasi (Mnt)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={durasiMenit}
+                    onChange={(e) => setDurasiMenit(Number(e.target.value))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 font-mono dark:border-slate-700 dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    KKM
+                  </label>
+                  <input
+                    type="number"
+                    min={50}
+                    max={100}
+                    value={targetNilai}
+                    onChange={(e) => setTargetNilai(Number(e.target.value))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 font-mono dark:border-slate-700 dark:bg-slate-950"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Jalur SKK
+                  </label>
+                  <select
+                    value={modePembelajaran}
+                    onChange={(e) =>
+                      setModePembelajaran(e.target.value as LearningMode)
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <option value="Tatap Muka">Tatap Muka</option>
+                    <option value="Tutorial">Tutorial</option>
+                    <option value="Mandiri">Mandiri</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Kaitkan Modul (Opsional)
+                  </label>
+                  <select
+                    value={moduleId}
+                    onChange={(e) => setModuleId(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <option value="">Umum</option>
+                    {modules.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.kode}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Tutor Penyusun
+                  </label>
+                  <input
+                    type="text"
+                    value={tutorPembuat}
+                    onChange={(e) => setTutorPembuat(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-blue-700 py-2.5 font-bold text-white hover:bg-blue-800"
+              >
+                + Buat Paket Soal & Generate Kode Unik
+              </button>
+            </form>
+
+            {/* 2. Import Soal Massal */}
+            <form
+              onSubmit={handleImportBulk}
+              className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 text-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5 dark:border-slate-800">
+                <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900 dark:text-slate-100">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                  <span>2. Import Soal Massal (CSV / Copy-Paste ;)</span>
+                </h2>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                  Target Paket Soal
+                </label>
+                <select
+                  value={bulkQuizId}
+                  onChange={(e) => setBulkQuizId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  {quizzes.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      [{q.kodePaket || q.id}] {q.judul} ({q.soal.length} soal)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadBulkTemplate}
+                  className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Template CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFillBulkExample}
+                  className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2.5 py-1 font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                >
+                  <span>Contoh</span>
+                </button>
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <Upload className="h-3 w-3" />
+                  <span>File .csv/.txt</span>
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleUploadBulkFile}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <textarea
+                  rows={4}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder="Format per baris: Pertanyaan;Opsi A;Opsi B;Opsi C;Opsi D;Kunci (A/B/C/D);Pembahasan"
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2.5 font-mono text-[11px] dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+
+              {bulkStatusMsg && (
+                <p className="font-medium text-emerald-700 dark:text-emerald-400">
+                  {bulkStatusMsg}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-emerald-700 py-2 font-bold text-white hover:bg-emerald-800"
+              >
+                Import Butir Soal ke Paket Terpilih
+              </button>
+            </form>
+          </div>
+
+          {/* Right Column: Daftar Paket Soal & Short Link + Tambah Soal Satuan */}
+          <div className="space-y-6 lg:col-span-7">
+            {/* Daftar Paket Soal & Short Link */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Daftar Paket Soal & Short Link Ujian ({quizzes.length})
+                </h2>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {quizzes.map((q) => {
+                  const kode = q.kodePaket || q.id;
+                  return (
+                    <div
+                      key={q.id}
+                      className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-blue-900 px-2 py-0.5 font-mono text-[11px] font-bold text-white">
+                              KODE: {kode}
+                            </span>
+                            {q.isRemedial && (
+                              <span className="font-bold text-red-700 dark:text-red-400">
+                                [Remidial]
+                              </span>
+                            )}
+                            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                              {q.judul}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-slate-600 dark:text-slate-400">
+                            {q.mataPelajaran} · {q.program}
+                            {q.kelas ? ` (${q.kelas})` : ''} ·{' '}
+                            {q.modePembelajaran} ·{' '}
+                            <strong className="font-mono text-slate-800 dark:text-slate-200">
+                              {q.soal.length} Soal
+                            </strong>{' '}
+                            · {q.durasiMenit} mnt · KKM {q.targetNilai}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyShortLink(kode)}
+                            className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                          >
+                            {copiedCode === kode ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-600" />
+                                <span>Tersalin</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3 text-blue-600" />
+                                <span>Salin Link</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenStandaloneExam(kode)}
+                            className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2.5 py-1 font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Buka CBT (?ujian)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedQuizId(q.id);
+                              setActiveTab('pengerjaan');
+                            }}
+                            className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 font-semibold text-white hover:bg-slate-800 dark:bg-blue-700"
+                          >
+                            <Play className="h-3 w-3" />
+                            <span>Simulasi</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteQuiz(q.id)}
+                            className="rounded p-1 text-red-600 hover:bg-red-50 dark:text-red-400"
+                            title="Hapus paket soal"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                        <Link2 className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{buildShortLink(kode)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tambah Soal Satuan */}
+            <form
+              onSubmit={handleAddSingleQuestion}
+              className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 text-xs"
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 dark:border-slate-800">
+                <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900 dark:text-slate-100">
+                  <Plus className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                  <span>Tambah Soal Satuan</span>
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Pilih Paket Soal
+                  </label>
+                  <select
+                    value={singleQuizId}
+                    onChange={(e) => setSingleQuizId(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    {quizzes.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        [{q.kodePaket || q.id}] {q.judul}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Kunci Jawaban
+                  </label>
+                  <select
+                    value={kunciLetter}
+                    onChange={(e) =>
+                      setKunciLetter(e.target.value as 'A' | 'B' | 'C' | 'D')
+                    }
+                    className="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-2 font-bold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  >
+                    <option value="A">Kunci: A</option>
+                    <option value="B">Kunci: B</option>
+                    <option value="C">Kunci: C</option>
+                    <option value="D">Kunci: D</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                  Pertanyaan *
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={qText}
+                  onChange={(e) => setQText(e.target.value)}
+                  placeholder="Tuliskan soal pilihan ganda..."
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <input
+                  type="text"
+                  required
+                  value={opsiA}
+                  onChange={(e) => setOpsiA(e.target.value)}
+                  placeholder="Opsi A"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+                <input
+                  type="text"
+                  required
+                  value={opsiB}
+                  onChange={(e) => setOpsiB(e.target.value)}
+                  placeholder="Opsi B"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+                <input
+                  type="text"
+                  required
+                  value={opsiC}
+                  onChange={(e) => setOpsiC(e.target.value)}
+                  placeholder="Opsi C"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+                <input
+                  type="text"
+                  required
+                  value={opsiD}
+                  onChange={(e) => setOpsiD(e.target.value)}
+                  placeholder="Opsi D"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+
+              <input
+                type="text"
+                value={qPembahasan}
+                onChange={(e) => setQPembahasan(e.target.value)}
+                placeholder="Pembahasan kunci jawaban (opsional)"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+              />
+
+              <button
+                type="submit"
+                className="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-800 dark:bg-blue-700 dark:hover:bg-blue-800"
+              >
+                + Tambahkan Butir Soal
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: LIVE TIMED CBT ASSESSMENT RUNNER */}
       {activeTab === 'pengerjaan' && (
         <div className="space-y-6">
           {sessionStatus === 'idle' && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-              <div className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-5">
-                <h2 className="text-base font-semibold text-slate-900">
-                  Mulai Sesi Evaluasi Baru
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-5">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Mulai Sesi Evaluasi CBT Real-Time
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Menghitung durasi per soal dan total waktu secara real-time, lalu menilai otomatis & menerbitkan soal remidial bila skor di bawah KKM.
                 </p>
 
                 <div className="mt-5 space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Pilih Warga Belajar
                     </label>
                     <select
                       value={selectedLearnerId}
                       onChange={(e) => setSelectedLearnerId(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
                     >
                       {learners.map((l) => (
                         <option key={l.id} value={l.id}>
-                          {l.nama} — {l.program} ({l.rombel})
+                          {l.nama} — {l.program} ({l.kelas || l.rombel})
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Pilih Paket Soal Evaluasi
                     </label>
                     <select
                       value={selectedQuizId}
                       onChange={(e) => setSelectedQuizId(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
                     >
                       {quizzes.map((q) => (
                         <option key={q.id} value={q.id}>
-                          {q.isRemedial ? '[REMIDIAL] ' : ''}
+                          {q.isRemedial ? '[REMIDIAL] ' : `[${q.kodePaket || q.id}] `}
                           {q.judul} ({q.soal.length} soal · KKM {q.targetNilai})
                         </option>
                       ))}
@@ -414,29 +1009,29 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                   </div>
 
                   {activeQuiz && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                       <div className="grid grid-cols-2 gap-2 font-mono tabular-nums">
                         <div>
                           <span className="text-slate-500">Mata Pelajaran:</span>
-                          <p className="font-sans font-semibold text-slate-900">
+                          <p className="font-sans font-semibold text-slate-900 dark:text-slate-100">
                             {activeQuiz.mataPelajaran}
                           </p>
                         </div>
                         <div>
-                          <span className="text-slate-500">Jalur SKK:</span>
-                          <p className="font-sans font-semibold text-blue-700">
-                            {activeQuiz.modePembelajaran}
+                          <span className="text-slate-500">Kode Short Link:</span>
+                          <p className="font-semibold text-blue-700 dark:text-blue-400">
+                            {activeQuiz.kodePaket || activeQuiz.id}
                           </p>
                         </div>
                         <div>
                           <span className="text-slate-500">Target KKM:</span>
-                          <p className="font-semibold text-slate-900">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">
                             {activeQuiz.targetNilai} poin
                           </p>
                         </div>
                         <div>
                           <span className="text-slate-500">Batas Waktu:</span>
-                          <p className="font-semibold text-slate-900">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">
                             {activeQuiz.durasiMenit} menit
                           </p>
                         </div>
@@ -456,36 +1051,37 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-7">
-                <h2 className="text-base font-semibold text-slate-900">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-7">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   Daftar Paket Soal & Remidial Tersedia
                 </h2>
-                <div className="mt-4 divide-y divide-slate-200">
+                <div className="mt-4 divide-y divide-slate-200 dark:divide-slate-800">
                   {quizzes.map((q) => (
                     <div
                       key={q.id}
                       className="flex flex-col justify-between gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
                     >
                       <div>
-                        <p className="font-semibold text-slate-900">
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">
                           {q.isRemedial && (
-                            <span className="mr-1.5 text-xs font-bold text-red-700">
+                            <span className="mr-1.5 text-xs font-bold text-red-700 dark:text-red-400">
                               [Remidial Otomatis]
                             </span>
                           )}
                           {q.judul}
                         </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {q.mataPelajaran} · {q.modePembelajaran} · {q.program}{' '}
-                          · {q.soal.length} soal · Target KKM {q.targetNilai}
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          Kode: {q.kodePaket || q.id} · {q.mataPelajaran} ·{' '}
+                          {q.soal.length} soal · KKM {q.targetNilai}
                         </p>
                       </div>
                       <button
                         type="button"
+                        disabled={q.soal.length === 0}
                         onClick={() => startQuizSession(q.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-800 hover:bg-slate-50 whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 whitespace-nowrap shrink-0"
                       >
-                        <Play className="h-3.5 w-3.5 text-blue-700" />
+                        <Play className="h-3.5 w-3.5 text-blue-700 dark:text-blue-400" />
                         <span>Kerjakan</span>
                       </button>
                     </div>
@@ -497,33 +1093,33 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
 
           {sessionStatus === 'running' && activeQuiz && currentQuestion && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-              <div className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-8">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-8">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
                   <div>
-                    <p className="text-xs font-medium text-slate-500">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                       {activeQuiz.judul} ·{' '}
                       {learners.find((l) => l.id === selectedLearnerId)?.nama}
                     </p>
-                    <h2 className="mt-0.5 text-base font-bold text-slate-900">
+                    <h2 className="mt-0.5 text-base font-bold text-slate-900 dark:text-slate-100">
                       Soal {currentQIndex + 1} dari {activeQuiz.soal.length}
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 font-mono text-xs tabular-nums">
+                  <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 font-mono text-xs tabular-nums dark:border-slate-700 dark:bg-slate-950">
                     <div>
                       <span className="block text-[10px] text-slate-500">
                         Durasi Soal Ini
                       </span>
-                      <span className="font-semibold text-blue-700">
+                      <span className="font-semibold text-blue-700 dark:text-blue-400">
                         {formatClock(questionDurations[currentQuestion.id] || 0)}
                       </span>
                     </div>
-                    <div className="h-6 w-px bg-slate-200" />
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800" />
                     <div>
                       <span className="block text-[10px] text-slate-500">
                         Total Waktu Berjalan
                       </span>
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
                         {formatClock(totalElapsedSeconds)} /{' '}
                         {formatClock(activeQuiz.durasiMenit * 60)}
                       </span>
@@ -531,8 +1127,34 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                   </div>
                 </div>
 
+                {/* Progress Strip: Total / Terjawab / Belum */}
+                <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-center font-mono text-xs tabular-nums dark:border-slate-800 dark:bg-slate-950">
+                  <div>
+                    <span className="text-slate-500">Total Soal:</span>{' '}
+                    <strong className="text-slate-900 dark:text-slate-100">
+                      {activeQuiz.soal.length}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700 dark:text-emerald-400">
+                      Terjawab:
+                    </span>{' '}
+                    <strong className="text-emerald-700 dark:text-emerald-400">
+                      {Object.keys(answers).length}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-amber-700 dark:text-amber-400">
+                      Belum:
+                    </span>{' '}
+                    <strong className="text-amber-700 dark:text-amber-400">
+                      {activeQuiz.soal.length - Object.keys(answers).length}
+                    </strong>
+                  </div>
+                </div>
+
                 <div className="py-6">
-                  <p className="text-base font-medium leading-relaxed text-slate-900">
+                  <p className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100">
                     {currentQuestion.pertanyaan}
                   </p>
 
@@ -553,15 +1175,15 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                           }
                           className={`flex w-full items-start gap-3 rounded-lg border p-3.5 text-left text-sm transition-colors ${
                             isSelected
-                              ? 'border-blue-700 bg-blue-50/70 text-slate-900'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              ? 'border-blue-700 bg-blue-50/70 text-slate-900 dark:border-blue-500 dark:bg-blue-950/60 dark:text-slate-100'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800'
                           }`}
                         >
                           <span
                             className={`flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs font-semibold ${
                               isSelected
                                 ? 'bg-blue-700 text-white'
-                                : 'bg-slate-100 text-slate-700'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                             }`}
                           >
                             {letter}
@@ -573,12 +1195,12 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <div className="flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
                   <button
                     type="button"
                     disabled={currentQIndex === 0}
                     onClick={() => setCurrentQIndex((i) => Math.max(0, i - 1))}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span>Sebelumnya</span>
@@ -592,7 +1214,7 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                           Math.min(activeQuiz.soal.length - 1, i + 1)
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-blue-700"
                     >
                       <span>Soal Berikutnya</span>
                       <ChevronRight className="h-4 w-4" />
@@ -611,8 +1233,8 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
               </div>
 
               <div className="space-y-4 lg:col-span-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-5">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     Navigasi Nomor Soal
                   </h3>
                   <div className="mt-3 grid grid-cols-5 gap-2">
@@ -628,8 +1250,8 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                             current
                               ? 'border-blue-700 bg-blue-700 text-white'
                               : answered
-                              ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
                           {idx + 1}
@@ -638,19 +1260,10 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                     })}
                   </div>
 
-                  <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-600">
-                    <div className="flex justify-between font-mono tabular-nums">
-                      <span>Terjawab:</span>
-                      <span className="font-semibold text-slate-900">
-                        {Object.keys(answers).length} / {activeQuiz.soal.length}
-                      </span>
-                    </div>
-                  </div>
-
                   <button
                     type="button"
                     onClick={finishQuizSession}
-                    className="mt-4 w-full rounded-lg border border-blue-700 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100"
+                    className="mt-4 w-full rounded-lg border border-blue-700 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100 dark:border-blue-600 dark:bg-blue-950/60 dark:text-blue-300"
                   >
                     Kirim Jawaban Sekarang
                   </button>
@@ -662,23 +1275,23 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
           {sessionStatus === 'completed' &&
             lastCompletedAttempt &&
             activeQuiz && (
-              <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6">
-                <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       {lastCompletedAttempt.tuntas ? (
-                        <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                        <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 className="h-5 w-5" />
                           Target Kompetensi Tercapai
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-red-700">
+                        <span className="inline-flex items-center gap-1.5 text-red-700 dark:text-red-400">
                           <AlertTriangle className="h-5 w-5" />
-                          Target Belum Tercapai — Notifikasi Tutor & Soal Remidial Otomatis Diterbitkan
+                          Target Belum Tercapai — EWS & Soal Remidial Otomatis Diterbitkan
                         </span>
                       )}
                     </div>
-                    <h2 className="mt-1 text-xl font-bold text-slate-900">
+                    <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
                       {lastCompletedAttempt.learnerNama} ·{' '}
                       {lastCompletedAttempt.quizJudul}
                     </h2>
@@ -690,8 +1303,8 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                       <p
                         className={`text-3xl font-bold ${
                           lastCompletedAttempt.tuntas
-                            ? 'text-emerald-700'
-                            : 'text-red-700'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-red-700 dark:text-red-400'
                         }`}
                       >
                         {lastCompletedAttempt.skor}
@@ -702,7 +1315,7 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Total Durasi</p>
-                      <p className="text-xl font-semibold text-slate-900">
+                      <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                         {formatClock(lastCompletedAttempt.totalDurasiDetik)}
                       </p>
                     </div>
@@ -710,7 +1323,7 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     Pembahasan Kunci Jawaban Otomatis & Rincian Waktu per Soal
                   </h3>
                   {activeQuiz.soal.map((q, idx) => {
@@ -721,10 +1334,10 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                     return (
                       <div
                         key={q.id}
-                        className="rounded-lg border border-slate-200 p-4 text-sm"
+                        className="rounded-lg border border-slate-200 p-4 text-sm dark:border-slate-800"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <p className="font-medium text-slate-900">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">
                             {idx + 1}. {q.pertanyaan}
                           </p>
                           <div className="flex items-center gap-3 shrink-0 font-mono text-xs tabular-nums">
@@ -733,12 +1346,12 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                               {detail?.durasiDetik || 0}d
                             </span>
                             {detail?.benar ? (
-                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
                                 <CheckCircle2 className="h-4 w-4" />
                                 Benar
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                              <span className="inline-flex items-center gap-1 font-semibold text-red-700 dark:text-red-400">
                                 <XCircle className="h-4 w-4" />
                                 Salah
                               </span>
@@ -746,9 +1359,9 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                           </div>
                         </div>
                         <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
-                          <p className="text-slate-600">
+                          <p className="text-slate-600 dark:text-slate-400">
                             Jawaban Peserta:{' '}
-                            <span className="font-semibold text-slate-900">
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">
                               {chosenIdx !== null
                                 ? `${String.fromCharCode(65 + chosenIdx)}. ${
                                     q.pilihan[chosenIdx]
@@ -756,7 +1369,7 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                                 : 'Tidak dijawab'}
                             </span>
                           </p>
-                          <p className="text-emerald-700">
+                          <p className="text-emerald-700 dark:text-emerald-400">
                             Kunci Jawaban:{' '}
                             <span className="font-semibold">
                               {String.fromCharCode(65 + q.kunciJawaban)}.{' '}
@@ -765,7 +1378,7 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                           </p>
                         </div>
                         {q.pembahasan && (
-                          <p className="mt-2 text-xs text-slate-600">
+                          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                             Pembahasan: {q.pembahasan}
                           </p>
                         )}
@@ -774,11 +1387,11 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
                   })}
                 </div>
 
-                <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                <div className="flex justify-end border-t border-slate-200 pt-4 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => setSessionStatus('idle')}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-blue-700"
                   >
                     Kembali ke Pemilihan Soal
                   </button>
@@ -788,450 +1401,108 @@ export const QuizSystem: React.FC<QuizSystemProps> = ({
         </div>
       )}
 
-      {/* TAB 1: QUIZ & QUESTION BUILDER */}
-      {activeTab === 'buat-soal' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <form
-            onSubmit={handleCreateQuiz}
-            className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 lg:col-span-8"
-          >
-            <h2 className="text-base font-semibold text-slate-900">
-              Buat Paket Soal Modular & Kunci Jawaban Otomatis
-            </h2>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Judul Evaluasi / Ujian
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={judul}
-                  onChange={(e) => setJudul(e.target.value)}
-                  placeholder="Mis. Evaluasi Modul 4 Ekonomi Kreatif"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Mata Pelajaran / Bidang Kompetensi
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={mataPelajaran}
-                  onChange={(e) => setMataPelajaran(e.target.value)}
-                  placeholder="Mis. Kewirausahaan"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Kaitkan ke Modul Pembelajaran
-                </label>
-                <select
-                  value={moduleId}
-                  onChange={(e) => setModuleId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="">Umum / Tanpa Modul Khusus</option>
-                  {modules.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.kode} — {m.judul}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Jalur SKK Pembelajaran
-                </label>
-                <select
-                  value={modePembelajaran}
-                  onChange={(e) =>
-                    setModePembelajaran(e.target.value as LearningMode)
-                  }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="Tatap Muka">Tatap Muka</option>
-                  <option value="Tutorial">Tutorial</option>
-                  <option value="Mandiri">Mandiri</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700">
-                  Program Sasaran
-                </label>
-                <select
-                  value={program}
-                  onChange={(e) =>
-                    setProgram(e.target.value as ProgramType | 'Semua Program')
-                  }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                >
-                  <option value="Semua Program">Semua Program</option>
-                  <option value="Paket A">Paket A</option>
-                  <option value="Paket B">Paket B</option>
-                  <option value="Paket C">Paket C</option>
-                  <option value="Kursus Vokasi">Kursus Vokasi</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Target KKM
-                  </label>
-                  <input
-                    type="number"
-                    min={50}
-                    max={100}
-                    value={targetNilai}
-                    onChange={(e) => setTargetNilai(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Batas (Menit)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={180}
-                    value={durasiMenit}
-                    onChange={(e) => setDurasiMenit(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Tutor Penyusun
-                </label>
-                <input
-                  type="text"
-                  value={tutorPembuat}
-                  onChange={(e) => setTutorPembuat(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 border-t border-slate-200 pt-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Daftar Butir Soal ({draftQuestions.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={addDraftQuestion}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Tambah Butir Soal</span>
-                </button>
-              </div>
-
-              {draftQuestions.map((q, qIdx) => (
-                <div
-                  key={q.id}
-                  className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold text-slate-700">
-                      Soal #{qIdx + 1}
-                    </span>
-                    {draftQuestions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDraftQuestions((prev) =>
-                            prev.filter((_, i) => i !== qIdx)
-                          )
-                        }
-                        className="text-xs font-medium text-red-600 hover:underline"
-                      >
-                        Hapus Soal
-                      </button>
-                    )}
-                  </div>
-
-                  <textarea
-                    rows={2}
-                    required
-                    value={q.pertanyaan}
-                    onChange={(e) =>
-                      updateDraftQuestion(qIdx, { pertanyaan: e.target.value })
-                    }
-                    placeholder="Tuliskan pertanyaan di sini..."
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-                  />
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {q.pilihan.map((opt, optIdx) => {
-                      const letter = String.fromCharCode(65 + optIdx);
-                      const isKey = q.kunciJawaban === optIdx;
-                      return (
-                        <div
-                          key={optIdx}
-                          className={`flex items-center gap-2 rounded-lg border bg-white px-2.5 py-1.5 ${
-                            isKey ? 'border-emerald-600' : 'border-slate-200'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`key-${q.id}`}
-                            checked={isKey}
-                            onChange={() =>
-                              updateDraftQuestion(qIdx, { kunciJawaban: optIdx })
-                            }
-                            title="Pilih sebagai kunci jawaban"
-                            className="h-4 w-4 text-emerald-600"
-                          />
-                          <span className="font-mono text-xs font-semibold text-slate-500">
-                            {letter}.
-                          </span>
-                          <input
-                            type="text"
-                            required
-                            value={opt}
-                            onChange={(e) =>
-                              updateDraftOption(qIdx, optIdx, e.target.value)
-                            }
-                            placeholder={`Opsi ${letter}`}
-                            className="w-full bg-transparent text-xs text-slate-800 focus:outline-none"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="sm:col-span-2">
-                      <input
-                        type="text"
-                        value={q.pembahasan}
-                        onChange={(e) =>
-                          updateDraftQuestion(qIdx, {
-                            pembahasan: e.target.value,
-                          })
-                        }
-                        placeholder="Pembahasan singkat kunci jawaban (opsional)"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 whitespace-nowrap">
-                        Bobot:
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={q.bobot}
-                        onChange={(e) =>
-                          updateDraftQuestion(qIdx, {
-                            bobot: Number(e.target.value),
-                          })
-                        }
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end border-t border-slate-200 pt-4">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800"
-              >
-                <ListChecks className="h-4 w-4" />
-                <span>Simpan Paket Soal ke Bank Soal</span>
-              </button>
-            </div>
-          </form>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-4">
-            <h2 className="text-base font-semibold text-slate-900">
-              Bank Soal Tersimpan
-            </h2>
-            <div className="mt-4 space-y-3">
-              {quizzes.map((q) => (
-                <div
-                  key={q.id}
-                  className="rounded-lg border border-slate-200 p-3.5 text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {q.isRemedial && (
-                          <span className="mr-1 text-red-700">[Remidial]</span>
-                        )}
-                        {q.judul}
-                      </p>
-                      <p className="mt-0.5 text-slate-500">
-                        {q.mataPelajaran} · {q.modePembelajaran} · {q.program}
-                      </p>
-                      <p className="mt-1 font-mono text-[11px] text-slate-600 tabular-nums">
-                        {q.soal.length} soal · KKM {q.targetNilai} ·{' '}
-                        {q.durasiMenit} mnt
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteQuiz(q.id)}
-                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Hapus paket ${q.judul}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('pengerjaan');
-                        startQuizSession(q.id);
-                      }}
-                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
-                    >
-                      <Play className="h-3 w-3" />
-                      <span>Jalankan Evaluasi</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: INDIVIDUAL ATTEMPT RESULTS */}
+      {/* TAB 3: ATTEMPT HISTORY & DURATION ANALYSIS */}
       {activeTab === 'hasil' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate-600">
-              Rekaman skor, jalur SKK, status ketuntasan, dan rincian durasi pengerjaan setiap individu.
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Riwayat Pengerjaan & Analisis Durasi Individu ({filteredAttempts.length})
+            </h2>
             <select
               value={historyLearnerFilter}
               onChange={(e) => setHistoryLearnerFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
             >
               <option value="Semua">Semua Warga Belajar</option>
               {learners.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.nama}
+                  {l.nama} ({l.nisn})
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600">
-                    <th className="px-6 py-3">Warga Belajar</th>
-                    <th className="px-4 py-3">Evaluasi & Jalur SKK</th>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
                     <th className="px-4 py-3">Tanggal</th>
+                    <th className="px-4 py-3">Warga Belajar</th>
+                    <th className="px-4 py-3">Paket Soal</th>
                     <th className="px-4 py-3 text-right">Benar</th>
-                    <th className="px-4 py-3 text-right">Durasi Total</th>
+                    <th className="px-4 py-3 text-right">Durasi</th>
                     <th className="px-4 py-3 text-right">Skor / KKM</th>
-                    <th className="px-6 py-3 text-right">Rincian</th>
+                    <th className="px-4 py-3 text-right">Detail</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredAttempts.map((att) => {
-                    const isExpanded = expandedAttemptId === att.id;
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredAttempts.map((at) => {
+                    const expanded = expandedAttemptId === at.id;
                     return (
-                      <React.Fragment key={att.id}>
-                        <tr className="hover:bg-slate-50/70">
-                          <td className="px-6 py-3.5 font-medium text-slate-900">
-                            {att.learnerNama}
+                      <React.Fragment key={at.id}>
+                        <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                          <td className="px-4 py-3 font-mono text-slate-500 tabular-nums">
+                            {at.tanggalPengerjaan.slice(0, 16).replace('T', ' ')}
                           </td>
-                          <td className="px-4 py-3.5 text-xs">
-                            <div className="font-medium text-slate-800">
-                              {att.quizJudul}
-                            </div>
-                            <div className="text-slate-500">
-                              {att.mataPelajaran} · {att.modePembelajaran}
-                            </div>
+                          <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                            {at.learnerNama}
                           </td>
-                          <td className="px-4 py-3.5 font-mono text-xs text-slate-600 tabular-nums">
-                            {att.tanggalPengerjaan.slice(0, 10)}
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-slate-800 dark:text-slate-200">
+                              {at.quizJudul}
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              {at.mataPelajaran} · {at.modePembelajaran}
+                            </p>
                           </td>
-                          <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-700 tabular-nums">
-                            {att.totalBenar}/{att.totalSoal}
+                          <td className="px-4 py-3 text-right font-mono tabular-nums">
+                            {at.totalBenar}/{at.totalSoal}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-700 tabular-nums">
-                            {formatClock(att.totalDurasiDetik)}
+                          <td className="px-4 py-3 text-right font-mono tabular-nums">
+                            {formatClock(at.totalDurasiDetik)}
                           </td>
-                          <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums">
+                          <td className="px-4 py-3 text-right font-mono font-bold tabular-nums">
                             <span
-                              className={`font-bold ${
-                                att.tuntas ? 'text-emerald-700' : 'text-red-700'
-                              }`}
+                              className={
+                                at.tuntas
+                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  : 'text-red-700 dark:text-red-400'
+                              }
                             >
-                              {att.skor}
+                              {at.skor} / {at.targetNilai}
                             </span>
-                            <span className="text-slate-400">
-                              /{att.targetNilai}
-                            </span>
-                            <div className="text-[11px]">
-                              {att.tuntas ? (
-                                <span className="text-emerald-700">Tuntas</span>
-                              ) : (
-                                <span className="text-red-700">Belum Tuntas</span>
-                              )}
-                            </div>
                           </td>
-                          <td className="px-6 py-3.5 text-right">
+                          <td className="px-4 py-3 text-right">
                             <button
                               type="button"
                               onClick={() =>
-                                setExpandedAttemptId(isExpanded ? null : att.id)
+                                setExpandedAttemptId(expanded ? null : at.id)
                               }
-                              className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              className="rounded border border-slate-200 px-2.5 py-1 text-[11px] font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                             >
-                              {isExpanded ? 'Tutup' : 'Audit Soal'}
+                              {expanded ? 'Tutup' : 'Rincian'}
                             </button>
                           </td>
                         </tr>
-                        {isExpanded && (
-                          <tr className="bg-slate-50/70">
-                            <td colSpan={7} className="px-6 py-4">
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
-                                {att.detailSoal.map((d, i) => (
+                        {expanded && (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="bg-slate-50 px-6 py-3 dark:bg-slate-950"
+                            >
+                              <div className="flex flex-wrap gap-2">
+                                {at.detailSoal.map((d, i) => (
                                   <div
                                     key={d.questionId}
-                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                                    className={`rounded border px-2.5 py-1 font-mono text-[11px] tabular-nums ${
+                                      d.benar
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                        : 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300'
+                                    }`}
                                   >
-                                    <div className="flex items-center justify-between font-mono tabular-nums">
-                                      <span className="font-semibold text-slate-700">
-                                        Soal #{i + 1}
-                                      </span>
-                                      <span
-                                        className={
-                                          d.benar
-                                            ? 'font-semibold text-emerald-700'
-                                            : 'font-semibold text-red-700'
-                                        }
-                                      >
-                                        {d.benar ? 'Benar' : 'Salah'}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 font-mono text-[11px] text-slate-500 tabular-nums">
-                                      Durasi: {d.durasiDetik} detik · Pilihan:{' '}
-                                      {d.jawabanDipilih !== null
-                                        ? String.fromCharCode(
-                                            65 + d.jawabanDipilih
-                                          )
-                                        : '—'}
-                                    </p>
+                                    No.{i + 1}: {d.benar ? 'Benar' : 'Salah'} (
+                                    {d.durasiDetik}d)
                                   </div>
                                 ))}
                               </div>

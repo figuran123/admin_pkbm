@@ -221,12 +221,12 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="no-print flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="no-print flex flex-col gap-4 border-b border-slate-200 pb-6 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-500">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Agregasi Kehadiran, Kompetensi & Rekomendasi Otomatis Berbasis Rentang Waktu
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Laporan Kemajuan Otomatis Pengajar
           </h1>
         </div>
@@ -234,7 +234,7 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
           <button
             type="button"
             onClick={handleDownloadCsv}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <Download className="h-4 w-4" />
             <span>Unduh CSV</span>
@@ -253,9 +253,9 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
                 ? 'Arsipkan laporan ini ke Google Drive'
                 : 'Hubungkan Google Drive terlebih dahulu'
             }
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
-            <CloudUpload className="h-4 w-4 text-blue-700" />
+            <CloudUpload className="h-4 w-4 text-blue-700 dark:text-blue-400" />
             <span>Simpan ke Drive</span>
           </button>
           <button
@@ -270,12 +270,12 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
       </div>
 
       {/* Period & Filter Controls */}
-      <div className="no-print flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="no-print flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
-          <label className="block text-xs font-semibold text-slate-600">
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
             Periode Pelaporan Otomatis
           </label>
-          <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
             {(
               [
                 ['mingguan', 'Mingguan (7 Hari)'],
@@ -290,8 +290,8 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
                 onClick={() => setPreset(key)}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                   preset === key
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
                 {label}
@@ -303,38 +303,38 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
         {preset === 'kustom' && (
           <div className="flex flex-wrap items-center gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                 Dari Tanggal
               </label>
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="mt-1 rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm"
+                className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                 Sampai Tanggal
               </label>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="mt-1 rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm"
+                className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
           </div>
         )}
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600">
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
             Filter Program
           </label>
           <select
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
-            className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
+            className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             <option value="Semua">Semua Program</option>
             {(['Paket A', 'Paket B', 'Paket C', 'Kursus Vokasi'] as ProgramType[]).map(
@@ -349,22 +349,22 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
       </div>
 
       {/* Printable Report Sheet */}
-      <div className="print-only-container rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start">
+      <div className="print-only-container rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-start">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+            <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
               <FileBarChart2 className="h-4 w-4" />
-              <span>PKBM LENTERA BELAJAR · DOKUMEN EVALUASI AKADEMIK</span>
+              <span>PKBM DIGITAL · DOKUMEN EVALUASI AKADEMIK</span>
             </div>
-            <h2 className="mt-1 text-xl font-bold text-slate-900">
+            <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
               {periodLabel}
             </h2>
-            <p className="mt-0.5 font-mono text-xs text-slate-500 tabular-nums">
+            <p className="mt-0.5 font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400">
               Rentang Data: {startDate} s.d. {endDate} · Cakupan:{' '}
               {programFilter} ({reportRows.length} warga belajar)
             </p>
           </div>
-          <div className="text-left font-mono text-xs text-slate-500 tabular-nums sm:text-right">
+          <div className="text-left font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400 sm:text-right">
             <p>Tanggal Cetak: {todayStr}</p>
             <p>Status: Dihasilkan Otomatis oleh Sistem</p>
           </div>
@@ -372,27 +372,27 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
 
         {/* Summary KPIs inside report */}
         <div className="my-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-            <p className="text-xs text-slate-500">Rerata Kehadiran</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Rerata Kehadiran</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
               {aggregateStats.avgAllAtt}%
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-            <p className="text-xs text-slate-500">Rerata Skor Evaluasi</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-blue-700 tabular-nums">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Rerata Skor Evaluasi</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-blue-700 tabular-nums dark:text-blue-400">
               {aggregateStats.avgAllScore}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-            <p className="text-xs text-slate-500">Total Pengerjaan Soal</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Total Pengerjaan Soal</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
               {aggregateStats.totalEval}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-            <p className="text-xs text-slate-500">Perlu Tindak Lanjut</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-red-700 tabular-nums">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Perlu Tindak Lanjut</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-red-700 tabular-nums dark:text-red-400">
               {aggregateStats.needFollowUp}
             </p>
           </div>
@@ -402,7 +402,7 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-y border-slate-200 bg-slate-50 font-semibold text-slate-700">
+              <tr className="border-y border-slate-200 bg-slate-50 font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 <th className="py-3 pr-4 pl-2">Warga Belajar</th>
                 <th className="px-3 py-3 text-right">Kehadiran</th>
                 <th className="px-3 py-3 text-right">H / I+S / A</th>
@@ -412,24 +412,24 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
                 <th className="py-3 pr-2 pl-3">Rekomendasi Tindak Lanjut Pengajar</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {reportRows.map((row) => (
                 <tr key={row.learner.id}>
                   <td className="py-3 pr-4 pl-2">
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">
                       {row.learner.nama}
                     </p>
-                    <p className="font-mono text-[11px] text-slate-500 tabular-nums">
+                    <p className="font-mono text-[11px] text-slate-500 tabular-nums dark:text-slate-400">
                       {row.learner.program} · {row.learner.tutorNama}
                     </p>
                   </td>
-                  <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800 tabular-nums">
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800 tabular-nums dark:text-slate-200">
                     {row.attRate}%
                   </td>
-                  <td className="px-3 py-3 text-right font-mono text-slate-600 tabular-nums">
+                  <td className="px-3 py-3 text-right font-mono text-slate-600 tabular-nums dark:text-slate-400">
                     {row.hadir} / {row.izinSakit} / {row.alfa}
                   </td>
-                  <td className="px-3 py-3 text-right font-mono text-slate-700 tabular-nums">
+                  <td className="px-3 py-3 text-right font-mono text-slate-700 tabular-nums dark:text-slate-300">
                     {row.attemptCount}x
                   </td>
                   <td className="px-3 py-3 text-right font-mono tabular-nums">
@@ -437,8 +437,8 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
                       <span
                         className={
                           row.avgScore >= row.learner.targetKompetensi
-                            ? 'font-bold text-emerald-700'
-                            : 'font-bold text-red-700'
+                            ? 'font-bold text-emerald-700 dark:text-emerald-400'
+                            : 'font-bold text-red-700 dark:text-red-400'
                         }
                       >
                         {row.avgScore}/{row.learner.targetKompetensi}
@@ -451,16 +451,16 @@ export const ProgressReports: React.FC<ProgressReportsProps> = ({
                     <span
                       className={
                         row.status === 'Tuntas'
-                          ? 'text-emerald-700'
+                          ? 'text-emerald-700 dark:text-emerald-400'
                           : row.status === 'Belum Ada Evaluasi'
-                          ? 'text-slate-600'
-                          : 'text-red-700'
+                          ? 'text-slate-600 dark:text-slate-400'
+                          : 'text-red-700 dark:text-red-400'
                       }
                     >
                       {row.status}
                     </span>
                   </td>
-                  <td className="py-3 pr-2 pl-3 leading-relaxed text-slate-600">
+                  <td className="py-3 pr-2 pl-3 leading-relaxed text-slate-600 dark:text-slate-400">
                     {row.rekomendasi}
                   </td>
                 </tr>

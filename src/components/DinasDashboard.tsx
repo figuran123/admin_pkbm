@@ -202,90 +202,90 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-500">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Pemantauan Lintas Lembaga Pendidikan Kesetaraan & Vokasi (Dinas Pendidikan)
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Dasbor Eksekutif Dinas Pendidikan
           </h1>
         </div>
-        <div className="font-mono text-xs text-slate-500 tabular-nums">
+        <div className="font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400">
           Total Lembaga Terdaftar: {institutions.length} PKBM / LKP
         </div>
       </div>
 
       {/* Global 4 KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Lembaga Terpantau</span>
-            <Building2 className="h-4 w-4 text-blue-700" />
+            <Building2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
           </div>
-          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {institutions.length}
           </p>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Integrasi spreadsheet terpisah per lembaga
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Total Warga Belajar</span>
-            <Users className="h-4 w-4 text-blue-700" />
+            <Users className="h-4 w-4 text-blue-700 dark:text-blue-400" />
           </div>
-          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {globalTotals.totalLearners}
           </p>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Lintas Paket A, Paket B, Paket C & Vokasi
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Kehadiran & Ketuntasan Global</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
           </div>
-          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {globalTotals.avgAtt}%{' '}
             <span className="text-base font-normal text-slate-400">
               / {globalTotals.avgPass}% tuntas
             </span>
           </p>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Agregasi presensi harian dan evaluasi modul
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Risiko Drop-Out (EWS)</span>
-            <ShieldAlert className="h-4 w-4 text-red-600" />
+            <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
           </div>
-          <p className="mt-2 font-mono text-3xl font-bold text-red-700 tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-bold text-red-700 tabular-nums dark:text-red-400">
             {globalTotals.totalHighRisk}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
             Siswa dengan kehadiran rendah & nilai &lt; KKM
           </p>
         </div>
       </div>
 
       {/* Institution Comparison Chart & Cards */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Perbandingan Progres Antar Lembaga
             </h2>
-            <p className="text-xs text-slate-500">
-              Klik &ldquo;Masuk Lembaga&rdquo; untuk mengelola data warga belajar, soal, dan sinkronisasi Google Workspace lembaga terkait
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Klik &ldquo;Kelola Lembaga&rdquo; untuk mengelola data warga belajar, soal, dan sinkronisasi Google Workspace lembaga terkait
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs text-slate-600">
+          <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-xs bg-blue-700" />
               Kehadiran (%)
@@ -300,7 +300,7 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
         <div className="mt-5 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600">
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 <th className="px-4 py-3">Lembaga & Kepala</th>
                 <th className="px-4 py-3 text-right">Warga Belajar</th>
                 <th className="px-4 py-3">Capaian Kehadiran & Nilai</th>
@@ -310,7 +310,7 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {institutionSummaries.map(
                 ({
                   inst,
@@ -319,67 +319,67 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                   avgScore,
                   highRiskCount,
                 }) => (
-                  <tr key={inst.id} className="hover:bg-slate-50/70">
+                  <tr key={inst.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                     <td className="px-4 py-4">
-                      <p className="font-semibold text-slate-900">{inst.nama}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{inst.nama}</p>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                         {inst.kota} · {inst.kepalaLembaga} ·{' '}
                         <span className="font-mono">{inst.kode}</span>
                       </p>
                     </td>
-                    <td className="px-4 py-4 text-right font-mono text-sm font-semibold text-slate-900 tabular-nums">
+                    <td className="px-4 py-4 text-right font-mono text-sm font-semibold text-slate-900 tabular-nums dark:text-slate-100">
                       {learnerCount}
                     </td>
                     <td className="px-4 py-4 min-w-[210px]">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 text-xs font-mono tabular-nums">
-                          <div className="h-2 flex-1 overflow-hidden rounded bg-slate-100">
+                          <div className="h-2 flex-1 overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
                             <div
                               className="h-full bg-blue-700"
                               style={{ width: `${attRate}%` }}
                             />
                           </div>
-                          <span className="w-10 text-right text-slate-700">
+                          <span className="w-10 text-right text-slate-700 dark:text-slate-300">
                             {attRate}%
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-mono tabular-nums">
-                          <div className="h-2 flex-1 overflow-hidden rounded bg-slate-100">
+                          <div className="h-2 flex-1 overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
                             <div
                               className="h-full bg-emerald-600"
                               style={{ width: `${avgScore}%` }}
                             />
                           </div>
-                          <span className="w-10 text-right text-slate-700">
+                          <span className="w-10 text-right text-slate-700 dark:text-slate-300">
                             {avgScore}
                           </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-right font-mono text-xs text-slate-600 tabular-nums">
+                    <td className="px-4 py-4 text-right font-mono text-xs text-slate-600 tabular-nums dark:text-slate-400">
                       {inst.skkWeights.tatapMuka}% / {inst.skkWeights.tutorial}% /{' '}
                       {inst.skkWeights.mandiri}%
                     </td>
                     <td className="px-4 py-4 text-right font-mono text-xs tabular-nums">
                       {highRiskCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                        <span className="inline-flex items-center gap-1 font-semibold text-red-700 dark:text-red-400">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           {highRiskCount} risiko tinggi
                         </span>
                       ) : (
-                        <span className="font-medium text-emerald-700">
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">
                           0 risiko
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-4 text-xs">
                       {inst.workspaceConfig?.spreadsheetId ? (
-                        <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                        <span className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400">
                           <FileSpreadsheet className="h-3.5 w-3.5" />
                           Sheets & Drive Aktif
                         </span>
                       ) : (
-                        <span className="text-slate-500">
+                        <span className="text-slate-500 dark:text-slate-400">
                           Belum dikonfigurasi
                         </span>
                       )}
@@ -388,7 +388,7 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => onSwitchInstitution(inst.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 whitespace-nowrap dark:bg-blue-700 dark:hover:bg-blue-600"
                       >
                         <span>Kelola Lembaga</span>
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -403,13 +403,13 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
       </div>
 
       {/* Cross-institution Learner Monitoring Table */}
-      <div className="rounded-xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Pemantauan Warga Belajar Lintas Lembaga & EWS Drop-Out
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Nilai SKK terbobot dihitung dari proporsi Tatap Muka, Tutorial, dan Mandiri masing-masing lembaga
             </p>
           </div>
@@ -421,13 +421,13 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                 value={searchLearner}
                 onChange={(e) => setSearchLearner(e.target.value)}
                 placeholder="Cari siswa / NISN..."
-                className="rounded-lg border border-slate-200 py-1.5 pr-3 pl-8 text-xs focus:border-blue-600 focus:outline-none"
+                className="rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-8 text-xs focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <select
               value={selectedInstFilter}
               onChange={(e) => setSelectedInstFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-blue-600 focus:outline-none"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="Semua">Semua Lembaga</option>
               {institutions.map((i) => (
@@ -442,7 +442,7 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600">
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 <th className="px-6 py-3">Warga Belajar</th>
                 <th className="px-4 py-3">Lembaga</th>
                 <th className="px-4 py-3">Program</th>
@@ -452,7 +452,7 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                 <th className="px-6 py-3">Status EWS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {crossInstitutionLearners.map(
                 ({
                   learner,
@@ -463,25 +463,25 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                   isDropOutRisk,
                   isWarning,
                 }) => (
-                  <tr key={learner.id} className="hover:bg-slate-50/70">
+                  <tr key={learner.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                     <td className="px-6 py-3">
-                      <p className="font-medium text-slate-900">{learner.nama}</p>
-                      <p className="font-mono text-[11px] text-slate-500 tabular-nums">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">{learner.nama}</p>
+                      <p className="font-mono text-[11px] text-slate-500 tabular-nums dark:text-slate-400">
                         {learner.id} · NISN {learner.nisn}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-700">
+                    <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300">
                       {instName}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
                       {learner.program} ({learner.rombel})
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">
                       <span
                         className={
                           attRate < 75
-                            ? 'font-semibold text-red-700'
-                            : 'text-slate-800'
+                            ? 'font-semibold text-red-700 dark:text-red-400'
+                            : 'text-slate-800 dark:text-slate-200'
                         }
                       >
                         {attRate}%
@@ -492,8 +492,8 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                         <span
                           className={
                             avgScore < learner.targetKompetensi
-                              ? 'font-semibold text-red-700'
-                              : 'font-semibold text-emerald-700'
+                              ? 'font-semibold text-red-700 dark:text-red-400'
+                              : 'font-semibold text-emerald-700 dark:text-emerald-400'
                           }
                         >
                           {avgScore} / {learner.targetKompetensi}
@@ -502,22 +502,22 @@ export const DinasDashboard: React.FC<DinasDashboardProps> = ({
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-blue-700 tabular-nums">
+                    <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-blue-700 tabular-nums dark:text-blue-400">
                       {weightedSkkScore}
                     </td>
                     <td className="px-6 py-3 text-xs font-medium">
                       {isDropOutRisk ? (
-                        <span className="inline-flex items-center gap-1 text-red-700">
+                        <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400">
                           <ShieldAlert className="h-4 w-4 shrink-0" />
                           Risiko Drop-Out
                         </span>
                       ) : isWarning ? (
-                        <span className="inline-flex items-center gap-1 text-amber-700">
+                        <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
                           <AlertTriangle className="h-4 w-4 shrink-0" />
                           Perlu Pendampingan
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-emerald-700">
+                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 className="h-4 w-4 shrink-0" />
                           Aman / Terkendali
                         </span>

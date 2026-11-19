@@ -1,29 +1,32 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
-  Bell,
+  BookOpen,
   BookOpenCheck,
   Building2,
   CalendarCheck2,
+  CalendarClock,
   CheckCircle2,
+  Clock,
   ExternalLink,
-  FileBarChart2,
   FileSpreadsheet,
-  FolderOpen,
+  FolderArchive,
   Globe2,
-  Layers,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
-  Menu,
+  Moon,
   QrCode,
   RefreshCw,
   Settings,
+  Sun,
   UploadCloud,
   UserCheck,
   Users,
   X,
 } from 'lucide-react';
 import {
+  INITIAL_ANNOUNCEMENTS,
   INITIAL_ATTEMPTS,
   INITIAL_ATTENDANCE,
   INITIAL_DOCUMENTS,
@@ -33,6 +36,8 @@ import {
   INITIAL_MODULES,
   INITIAL_NOTIFICATIONS,
   INITIAL_QUIZZES,
+  INITIAL_SCHEDULES,
+  INITIAL_SUBJECTS,
 } from './data/seedData';
 import {
   clearAccessToken,
@@ -62,6 +67,7 @@ import {
 } from './services/offlineDb';
 import {
   ActiveView,
+  Announcement,
   AttendanceRecord,
   DocumentCategory,
   Institution,
@@ -72,6 +78,9 @@ import {
   LeaveRequest,
   Quiz,
   QuizAttempt,
+  QuizQuestion,
+  ScheduleItem,
+  SubjectMaster,
   SyncBaseline,
   TutorNotification,
 } from './types';
@@ -79,18 +88,22 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { AttendanceTracker } from './components/AttendanceTracker';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DinasDashboard } from './components/DinasDashboard';
-import { DocumentVault } from './components/DocumentVault';
 import { GoogleSignInButton } from './components/GoogleSignInButton';
 import { IdCardPrinter } from './components/IdCardPrinter';
 import { InstitutionSettings } from './components/InstitutionSettings';
 import { LearnerManagement } from './components/LearnerManagement';
 import { LearnerPortal } from './components/LearnerPortal';
 import { ModuleManager } from './components/ModuleManager';
-import { ProgressReports } from './components/ProgressReports';
+import { PortfolioAndDocuments } from './components/PortfolioAndDocuments';
 import { QuizSystem } from './components/QuizSystem';
-import { TutorNotifications } from './components/TutorNotifications';
+import { ScheduleAndInfo } from './components/ScheduleAndInfo';
+import {
+  StandaloneExamView,
+  StandaloneQrProfile,
+} from './components/StandaloneViews';
 
-const STORAGE_KEY = 'lentera_belajar_multi_v2';
+const STORAGE_KEY = 'pkbm_digital_workspace_v3';
+const THEME_KEY = 'pkbm_digital_theme';
 
 interface PersistedAppState {
   institutions: Institution[];
@@ -98,7 +111,10 @@ interface PersistedAppState {
   learners: Learner[];
   documents: LearnerDocument[];
   attendance: AttendanceRecord[];
+  subjects: SubjectMaster[];
   modules: LearningModule[];
+  schedules: ScheduleItem[];
+  announcements: Announcement[];
   quizzes: Quiz[];
   attempts: QuizAttempt[];
   leaveRequests: LeaveRequest[];
@@ -107,7 +123,9 @@ interface PersistedAppState {
 
 function loadPersistedState(): PersistedAppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ||
+      localStorage.getItem('lentera_belajar_multi_v2');
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedAppState>;
       return {
@@ -121,7 +139,14 @@ function loadPersistedState(): PersistedAppState {
         attendance: parsed.attendance?.length
           ? parsed.attendance
           : INITIAL_ATTENDANCE,
+        subjects: parsed.subjects?.length ? parsed.subjects : INITIAL_SUBJECTS,
         modules: parsed.modules?.length ? parsed.modules : INITIAL_MODULES,
+        schedules: parsed.schedules?.length
+          ? parsed.schedules
+          : INITIAL_SCHEDULES,
+        announcements: parsed.announcements?.length
+          ? parsed.announcements
+          : INITIAL_ANNOUNCEMENTS,
         quizzes: parsed.quizzes?.length ? parsed.quizzes : INITIAL_QUIZZES,
         attempts: parsed.attempts || INITIAL_ATTEMPTS,
         leaveRequests: parsed.leaveRequests || INITIAL_LEAVE_REQUESTS,
@@ -137,7 +162,10 @@ function loadPersistedState(): PersistedAppState {
     learners: INITIAL_LEARNERS,
     documents: INITIAL_DOCUMENTS,
     attendance: INITIAL_ATTENDANCE,
+    subjects: INITIAL_SUBJECTS,
     modules: INITIAL_MODULES,
+    schedules: INITIAL_SCHEDULES,
+    announcements: INITIAL_ANNOUNCEMENTS,
     quizzes: INITIAL_QUIZZES,
     attempts: INITIAL_ATTEMPTS,
     leaveRequests: INITIAL_LEAVE_REQUESTS,
@@ -154,19 +182,67 @@ interface PendingConfirmState {
   action: () => Promise<void>;
 }
 
+function formatWibClock(date: Date): string {
+  const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agt',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+  ];
+  const d = days[date.getDay()];
+  const tgl = String(date.getDate()).padStart(2, '0');
+  const bln = months[date.getMonth()];
+  const thn = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${d}, ${tgl} ${bln} ${thn} · ${hh}:${mm}:${ss} WIB`;
+}
+
 export default function App() {
   const initialState = useMemo(() => loadPersistedState(), []);
 
-  const initialVerifyParam = useMemo(() => {
-    if (typeof window === 'undefined') return null;
+  const initialQueryParams = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { nisn: null, verify: null, ujian: null };
+    }
     const params = new URLSearchParams(window.location.search);
-    return params.get('verify');
+    return {
+      nisn: params.get('nisn'),
+      verify: params.get('verify'),
+      ujian: params.get('ujian'),
+    };
   }, []);
 
-  const [activeView, setActiveView] = useState<ActiveView>(
-    initialVerifyParam ? 'cards' : 'dashboard'
+  const [standaloneNisn, setStandaloneNisn] = useState<string | null>(
+    initialQueryParams.nisn || initialQueryParams.verify
   );
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [standaloneExamCode, setStandaloneExamCode] = useState<string | null>(
+    initialQueryParams.ujian
+  );
+
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch {
+      // ignore
+    }
+    return 'light';
+  });
+  const [clockText, setClockText] = useState<string>(() =>
+    formatWibClock(new Date())
+  );
 
   // Multi-institution & Domain State
   const [institutions, setInstitutions] = useState<Institution[]>(
@@ -182,8 +258,17 @@ export default function App() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(
     initialState.attendance
   );
+  const [subjects, setSubjects] = useState<SubjectMaster[]>(
+    initialState.subjects
+  );
   const [modules, setModules] = useState<LearningModule[]>(
     initialState.modules
+  );
+  const [schedules, setSchedules] = useState<ScheduleItem[]>(
+    initialState.schedules
+  );
+  const [announcements, setAnnouncements] = useState<Announcement[]>(
+    initialState.announcements
   );
   const [quizzes, setQuizzes] = useState<Quiz[]>(initialState.quizzes);
   const [attempts, setAttempts] = useState<QuizAttempt[]>(initialState.attempts);
@@ -199,11 +284,11 @@ export default function App() {
     null
   );
   const [cardTargetLearnerId, setCardTargetLearnerId] = useState<string | null>(
-    initialVerifyParam
+    null
   );
   const [quizDefaultTab, setQuizDefaultTab] = useState<
     'buat-soal' | 'pengerjaan' | 'hasil'
-  >('pengerjaan');
+  >('buat-soal');
   const [quizPreselectedLearnerId, setQuizPreselectedLearnerId] = useState<
     string | null
   >(null);
@@ -240,6 +325,24 @@ export default function App() {
     message: string;
   } | null>(null);
 
+  // Apply Dark Mode class on <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  // Live WIB Clock
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setClockText(formatWibClock(new Date()));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const activeInstitution = useMemo(
     () =>
       institutions.find((i) => i.id === activeInstitutionId) || institutions[0],
@@ -259,9 +362,21 @@ export default function App() {
     () => attendance.filter((a) => a.institutionId === activeInstitution.id),
     [attendance, activeInstitution.id]
   );
+  const instSubjects = useMemo(
+    () => subjects.filter((s) => s.institutionId === activeInstitution.id),
+    [subjects, activeInstitution.id]
+  );
   const instModules = useMemo(
     () => modules.filter((m) => m.institutionId === activeInstitution.id),
     [modules, activeInstitution.id]
+  );
+  const instSchedules = useMemo(
+    () => schedules.filter((s) => s.institutionId === activeInstitution.id),
+    [schedules, activeInstitution.id]
+  );
+  const instAnnouncements = useMemo(
+    () => announcements.filter((a) => a.institutionId === activeInstitution.id),
+    [announcements, activeInstitution.id]
   );
   const instQuizzes = useMemo(
     () => quizzes.filter((q) => q.institutionId === activeInstitution.id),
@@ -285,7 +400,10 @@ export default function App() {
       learners: instLearners,
       documents: instDocuments,
       attendance: instAttendance,
+      subjects: instSubjects,
       modules: instModules,
+      schedules: instSchedules,
+      announcements: instAnnouncements,
       quizzes: instQuizzes,
       attempts: instAttempts,
       leaveRequests: instLeaveRequests,
@@ -295,7 +413,10 @@ export default function App() {
       instLearners,
       instDocuments,
       instAttendance,
+      instSubjects,
       instModules,
+      instSchedules,
+      instAnnouncements,
       instQuizzes,
       instAttempts,
       instLeaveRequests,
@@ -318,7 +439,7 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  // Persist non-sensitive domain data
+  // Persist domain state
   useEffect(() => {
     try {
       const payload: PersistedAppState = {
@@ -327,7 +448,10 @@ export default function App() {
         learners,
         documents,
         attendance,
+        subjects,
         modules,
+        schedules,
+        announcements,
         quizzes,
         attempts,
         leaveRequests,
@@ -343,7 +467,10 @@ export default function App() {
     learners,
     documents,
     attendance,
+    subjects,
     modules,
+    schedules,
+    announcements,
     quizzes,
     attempts,
     leaveRequests,
@@ -380,12 +507,8 @@ export default function App() {
 
   // Browser online/offline listener
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnlineBrowser(true);
-    };
-    const handleOffline = () => {
-      setIsOnlineBrowser(false);
-    };
+    const handleOnline = () => setIsOnlineBrowser(true);
+    const handleOffline = () => setIsOnlineBrowser(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -394,7 +517,6 @@ export default function App() {
     };
   }, []);
 
-  // Auto-flush IndexedDB offline queue when back online
   const handleSyncOfflineQueue = async () => {
     const pending = await getPendingOfflineAttendance(activeInstitution.id);
     if (pending.length === 0) return;
@@ -438,7 +560,7 @@ export default function App() {
       setNeedsAuth(true);
       showToast(
         'error',
-        'Sesi akses Google Workspace belum aktif. Silakan klik "Sign in with Google".'
+        'Sesi akses Google Workspace belum aktif. Silakan klik "Hubungkan Google".'
       );
       return null;
     }
@@ -526,7 +648,7 @@ export default function App() {
     }
   };
 
-  // --- INCREMENTAL DELTA SYNC TO GOOGLE SHEETS (WITH CONFIRMATION) ---
+  // --- INCREMENTAL DELTA SYNC TO GOOGLE SHEETS ---
   const requestIncrementalSync = () => {
     const token = requireToken();
     if (!token) return;
@@ -536,8 +658,8 @@ export default function App() {
       title: `Jalankan Incremental Sync (${activeInstitution.nama})?`,
       description:
         totalChanges === 0
-          ? 'Seluruh data lembaga ini sudah sama dengan snapshot terakhir di Google Sheets.'
-          : 'Hanya baris baru dan baris yang mengalami perubahan yang akan dikirim ke Google Sheets (delta update), sehingga cepat dan aman dari timeout.',
+          ? 'Seluruh 11 tab data lembaga ini sudah sama dengan snapshot terakhir di Google Sheets.'
+          : 'Hanya baris baru dan baris yang berubah pada 11 tab Spreadsheet yang akan dikirim ke Google Sheets (delta update), sehingga cepat dan bebas timeout.',
       details: [
         `Spreadsheet ID: ${
           activeInstitution.workspaceConfig?.spreadsheetId ||
@@ -586,7 +708,7 @@ export default function App() {
         });
         showToast(
           'success',
-          `Incremental Sync selesai: +${res.appendedRows} baru, ${res.updatedRows} diperbarui, ${res.skippedRows} dilewati.`
+          `Incremental Sync 11 tab selesai: +${res.appendedRows} baru, ${res.updatedRows} diperbarui, ${res.skippedRows} dilewati.`
         );
       },
     });
@@ -620,8 +742,14 @@ export default function App() {
         setDocuments((prev) => replaceInst(prev, loaded.documents));
       if (loaded.attendance)
         setAttendance((prev) => replaceInst(prev, loaded.attendance));
+      if (loaded.subjects?.length)
+        setSubjects((prev) => replaceInst(prev, loaded.subjects));
       if (loaded.modules?.length)
         setModules((prev) => replaceInst(prev, loaded.modules));
+      if (loaded.schedules?.length)
+        setSchedules((prev) => replaceInst(prev, loaded.schedules));
+      if (loaded.announcements?.length)
+        setAnnouncements((prev) => replaceInst(prev, loaded.announcements));
       if (loaded.quizzes?.length)
         setQuizzes((prev) => replaceInst(prev, loaded.quizzes));
       if (loaded.attempts)
@@ -648,7 +776,94 @@ export default function App() {
     }
   };
 
-  // --- GOOGLE DRIVE DOCUMENT HANDLERS ---
+  // --- REGISTER LEARNER + MULTI-FILE DRIVE UPLOAD ---
+  const handleAddLearnerWithDocs = async (
+    learner: Learner,
+    stagedDocs: Array<{
+      id: string;
+      kategori: DocumentCategory;
+      namaDokumen: string;
+      file: File | null;
+    }>
+  ) => {
+    setLearners((prev) => [...prev, learner]);
+
+    const filesToUpload = stagedDocs.filter((d) => d.file !== null);
+    if (filesToUpload.length === 0) {
+      showToast('success', `Warga belajar ${learner.nama} berhasil didaftarkan.`);
+      return;
+    }
+
+    const token = getAccessToken();
+    let cfg = activeInstitution.workspaceConfig;
+    if (token && !cfg?.driveFolderId) {
+      cfg = await ensureWorkspaceResources(
+        token,
+        cfg?.spreadsheetId,
+        cfg?.driveFolderId,
+        activeInstitution.nama
+      );
+      updateInstitutionConfig(activeInstitution.id, cfg);
+    }
+
+    const createdDocs: LearnerDocument[] = [];
+    for (const item of filesToUpload) {
+      const file = item.file!;
+      const sizeKb = Math.round(file.size / 1024);
+      const ukuranLabel =
+        sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+      if (token && cfg?.driveFolderId) {
+        const uploaded = await uploadFileToDrive(
+          token,
+          cfg.driveFolderId,
+          file,
+          `${learner.nisn}_${item.kategori.replace(/[^a-zA-Z0-9]/g, '_')}_${file.name}`
+        );
+        createdDocs.push({
+          id: `DOC-${Date.now().toString().slice(-5)}-${createdDocs.length}`,
+          institutionId: activeInstitution.id,
+          learnerId: learner.id,
+          learnerNama: learner.nama,
+          nisn: learner.nisn,
+          kategori: item.kategori,
+          namaFile: uploaded.name,
+          mimeType: uploaded.mimeType,
+          ukuranLabel,
+          tanggalUnggah: new Date().toISOString().slice(0, 10),
+          driveFileId: uploaded.id,
+          driveWebViewLink: uploaded.webViewLink,
+          statusSinkron: 'Tersimpan di Drive',
+          catatan: item.namaDokumen,
+        });
+      } else {
+        createdDocs.push({
+          id: `DOC-${Date.now().toString().slice(-5)}-${createdDocs.length}`,
+          institutionId: activeInstitution.id,
+          learnerId: learner.id,
+          learnerNama: learner.nama,
+          nisn: learner.nisn,
+          kategori: item.kategori,
+          namaFile: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          ukuranLabel,
+          tanggalUnggah: new Date().toISOString().slice(0, 10),
+          statusSinkron: 'Siap Diunggah ke Drive',
+          catatan: item.namaDokumen,
+        });
+      }
+    }
+
+    setDocuments((prev) => [...createdDocs, ...prev]);
+    showToast(
+      'success',
+      token
+        ? `Warga belajar ${learner.nama} dan ${createdDocs.length} dokumen berhasil diunggah ke Google Drive.`
+        : `Warga belajar ${learner.nama} & ${createdDocs.length} dokumen dicatat (hubungkan Google Drive untuk unggah otomatis).`
+    );
+  };
+
+  // --- GOOGLE DRIVE DOCUMENT & MODULE MATERIAL HANDLERS ---
   const handleUploadDocument = async ({
     learner,
     kategori,
@@ -667,7 +882,7 @@ export default function App() {
     const token = getAccessToken();
     if (!token) {
       throw new Error(
-        'Silakan klik "Sign in with Google" terlebih dahulu untuk mengunggah dokumen ke Google Drive.'
+        'Silakan klik "Hubungkan Google" terlebih dahulu untuk mengunggah dokumen ke Google Drive.'
       );
     }
 
@@ -694,6 +909,7 @@ export default function App() {
       institutionId: activeInstitution.id,
       learnerId: learner.id,
       learnerNama: learner.nama,
+      nisn: learner.nisn,
       kategori,
       namaFile: uploaded.name,
       mimeType: uploaded.mimeType,
@@ -708,6 +924,52 @@ export default function App() {
     showToast(
       'success',
       `Dokumen "${uploaded.name}" berhasil diunggah ke Google Drive.`
+    );
+  };
+
+  const handleAddModuleWithFile = async (
+    mod: LearningModule,
+    file: File | null
+  ) => {
+    let finalMod = { ...mod };
+    if (file) {
+      const token = getAccessToken();
+      if (token) {
+        let cfg = activeInstitution.workspaceConfig;
+        if (!cfg?.driveFolderId) {
+          cfg = await ensureWorkspaceResources(
+            token,
+            cfg?.spreadsheetId,
+            cfg?.driveFolderId,
+            activeInstitution.nama
+          );
+          updateInstitutionConfig(activeInstitution.id, cfg);
+        }
+        const uploaded = await uploadFileToDrive(
+          token,
+          cfg.driveFolderId,
+          file,
+          `MATERI_${mod.kode}_${file.name}`
+        );
+        finalMod = {
+          ...finalMod,
+          materiNama: uploaded.name,
+          materiDriveUrl: uploaded.webViewLink,
+          materiDriveFileId: uploaded.id,
+        };
+      } else {
+        finalMod = {
+          ...finalMod,
+          materiNama: file.name,
+        };
+      }
+    }
+    setModules((prev) => [finalMod, ...prev]);
+    showToast(
+      'success',
+      file && getAccessToken()
+        ? `Materi "${finalMod.judul}" dipublikasikan ke Google Drive.`
+        : `Materi "${finalMod.judul}" berhasil ditambahkan.`
     );
   };
 
@@ -793,10 +1055,12 @@ export default function App() {
     const remedialQuiz: Quiz = {
       id: `REM-${Date.now().toString().slice(-5)}`,
       institutionId: learner.institutionId,
+      kodePaket: `REM${Date.now().toString().slice(-4)}`,
       moduleId: sourceQuiz.moduleId,
       judul: `Remidial: ${sourceQuiz.judul} (${learner.nama})`,
       mataPelajaran: sourceQuiz.mataPelajaran,
       program: learner.program,
+      kelas: learner.kelas,
       modePembelajaran: 'Mandiri',
       targetNilai: sourceQuiz.targetNilai,
       durasiMenit: Math.max(10, selectedPool.length * 3),
@@ -808,7 +1072,7 @@ export default function App() {
       soal: selectedPool.map((q, i) => ({
         ...q,
         id: `${q.id}-REM-${i + 1}`,
-        bobot: Math.round(100 / selectedPool.length),
+        bobot: Math.round(100 / Math.max(1, selectedPool.length)),
       })),
     };
     setQuizzes((prev) => [remedialQuiz, ...prev]);
@@ -1001,7 +1265,11 @@ export default function App() {
             )
           : null;
 
-      if (attRate < 75 && latestAvg !== null && latestAvg < learner.targetKompetensi) {
+      if (
+        attRate < 75 &&
+        latestAvg !== null &&
+        latestAvg < learner.targetKompetensi
+      ) {
         const exists = instNotifications.some(
           (n) =>
             n.learnerId === learner.id && n.riskLevel === 'Tinggi (Drop-Out)'
@@ -1091,578 +1359,661 @@ export default function App() {
     [instNotifications]
   );
 
-  const navGroups: Array<{
-    group: string;
-    items: Array<{
-      id: ActiveView;
-      label: string;
-      icon: React.ComponentType<{ className?: string }>;
-      badge?: number;
-    }>;
+  const pendingDeltaTotal = deltaPreview.newCount + deltaPreview.changedCount;
+
+  // --- STANDALONE ROUTES (?nisn= / ?verify= and ?ujian=) ---
+  if (standaloneNisn) {
+    return (
+      <StandaloneQrProfile
+        nisnOrVerifyParam={standaloneNisn}
+        institutionName={activeInstitution.nama}
+        learners={instLearners}
+        documents={instDocuments}
+        attendance={instAttendance}
+        attempts={instAttempts}
+        modules={instModules}
+        schedules={instSchedules}
+        onBackToPortal={() => {
+          setStandaloneNisn(null);
+          if (typeof window !== 'undefined' && window.location.search) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }}
+      />
+    );
+  }
+
+  if (standaloneExamCode) {
+    return (
+      <StandaloneExamView
+        kodePaket={standaloneExamCode}
+        institutionName={activeInstitution.nama}
+        learners={instLearners}
+        quizzes={instQuizzes}
+        onSubmitAttempt={handleSubmitAttempt}
+        onBackToPortal={() => {
+          setStandaloneExamCode(null);
+          if (typeof window !== 'undefined' && window.location.search) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }}
+      />
+    );
+  }
+
+  const primaryTabs: Array<{
+    id: ActiveView;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
+    highlight?: boolean;
   }> = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'learners', label: 'Warga Belajar', icon: Users },
     {
-      group: 'Pengawasan & Lembaga',
-      items: [
-        { id: 'dinas', label: 'Dasbor Dinas', icon: Globe2 },
-        { id: 'dashboard', label: 'Dasbor Lembaga', icon: LayoutDashboard },
-      ],
+      id: 'attendance',
+      label: 'Presensi QR',
+      icon: CalendarCheck2,
+      badge: pendingOfflineCount > 0 ? pendingOfflineCount : undefined,
+    },
+    { id: 'modules', label: 'Mapel & Materi', icon: BookOpen },
+    {
+      id: 'jadwal',
+      label: 'Jadwal & Info KBM',
+      icon: CalendarClock,
+      badge: pendingAlertCount > 0 ? pendingAlertCount : undefined,
     },
     {
-      group: 'Operasional Akademik',
-      items: [
-        { id: 'learners', label: 'Warga Belajar', icon: Users },
-        { id: 'modules', label: 'Modul & SKK', icon: Layers },
-        { id: 'documents', label: 'Dokumen Drive', icon: FolderOpen },
-        {
-          id: 'attendance',
-          label: 'Absensi Offline/QR',
-          icon: CalendarCheck2,
-          badge: pendingOfflineCount > 0 ? pendingOfflineCount : undefined,
-        },
-        { id: 'quizzes', label: 'Soal & Evaluasi', icon: BookOpenCheck },
-        {
-          id: 'notifications',
-          label: 'EWS & Notifikasi',
-          icon: Bell,
-          badge: pendingAlertCount > 0 ? pendingAlertCount : undefined,
-        },
-        { id: 'reports', label: 'Laporan Otomatis', icon: FileBarChart2 },
-        { id: 'cards', label: 'Kartu QR', icon: QrCode },
-      ],
+      id: 'quizzes',
+      label: 'Bank Soal & Ujian',
+      icon: BookOpenCheck,
+      highlight: true,
     },
     {
-      group: 'Portal & Konfigurasi',
-      items: [
-        { id: 'portal', label: 'Portal Warga Belajar', icon: UserCheck },
-        { id: 'settings', label: 'Atur Sheets & Lembaga', icon: Settings },
-      ],
+      id: 'documents',
+      label: 'Portofolio & Laporan',
+      icon: FolderArchive,
     },
   ];
 
-  const currentNavLabel =
-    navGroups
-      .flatMap((g) => g.items)
-      .find((i) => i.id === activeView)?.label || 'Dasbor Lembaga';
-
-  const pendingDeltaTotal = deltaPreview.newCount + deltaPreview.changedCount;
+  const utilityTabs: Array<{
+    id: ActiveView;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
+    { id: 'dinas', label: 'Dasbor Dinas', icon: Globe2 },
+    { id: 'cards', label: 'Cetak Kartu KTWB QR', icon: QrCode },
+    { id: 'portal', label: 'Portal Warga Belajar', icon: UserCheck },
+    { id: 'settings', label: 'Pengaturan Sheets & Lembaga', icon: Settings },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      {/* Sidebar */}
-      <aside
-        className={`no-print fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-700 text-xs font-bold text-white">
-              LB
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      {/* Sticky Topbar (PKBM Digital Style) */}
+      <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-700 to-indigo-800 text-white shadow-xs">
+              <GraduationCap className="h-5 w-5" />
             </div>
-            <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap">
-              Lentera Belajar
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(false)}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 lg:hidden"
-            aria-label="Tutup menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Active Institution Switcher inside Sidebar */}
-        <div className="border-b border-slate-200 px-3 py-3">
-          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-            <Building2 className="h-3.5 w-3.5 text-blue-700" />
-            <span>Lembaga Aktif</span>
-          </label>
-          <select
-            value={activeInstitution.id}
-            onChange={(e) => {
-              setActiveInstitutionId(e.target.value);
-              setSelectedLearnerId(null);
-            }}
-            className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:border-blue-600 focus:outline-none"
-          >
-            {institutions.map((inst) => (
-              <option key={inst.id} value={inst.id}>
-                {inst.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
-          {navGroups.map((group) => (
-            <div key={group.group} className="space-y-1">
-              <p className="px-3 text-[11px] font-semibold text-slate-400">
-                {group.group}
+            <div>
+              <h1 className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base">
+                SISTEM INFORMASI PKBM DIGITAL
+              </h1>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Administrasi, CBT & Portofolio · Terintegrasi Google Sheets & Drive
               </p>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = activeView === item.id;
+            </div>
+          </div>
+
+          {/* Right Controls: Clock, Theme, Institution, Workspace Sync */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] font-medium text-slate-600 tabular-nums dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 md:flex">
+              <Clock className="h-3.5 w-3.5 text-blue-700 dark:text-blue-400" />
+              <span>{clockText}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              title="Ganti tema Terang / Gelap"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Mode Terang</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="h-3.5 w-3.5 text-slate-600" />
+                  <span className="hidden sm:inline">Mode Gelap</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-slate-700 dark:bg-slate-800">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-blue-700 dark:text-blue-400" />
+              <select
+                value={activeInstitution.id}
+                onChange={(e) => {
+                  setActiveInstitutionId(e.target.value);
+                  setSelectedLearnerId(null);
+                }}
+                aria-label="Pilih Lembaga Aktif"
+                className="max-w-[190px] bg-transparent text-xs font-semibold text-slate-800 focus:outline-none dark:text-slate-100"
+              >
+                {institutions.map((inst) => (
+                  <option
+                    key={inst.id}
+                    value={inst.id}
+                    className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    {inst.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {needsAuth ? (
+              <div className="shrink-0">
+                <GoogleSignInButton
+                  onClick={handleGoogleLogin}
+                  disabled={isLoggingIn}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={requestIncrementalSync}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60 whitespace-nowrap dark:bg-blue-700 dark:hover:bg-blue-600"
+                >
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  <span>
+                    {isSyncing
+                      ? 'Menyinkron...'
+                      : `Delta Sync (${pendingDeltaTotal})`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadFromSheets}
+                  disabled={
+                    isSyncing || !activeInstitution.workspaceConfig?.spreadsheetId
+                  }
+                  className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  title="Muat Data dari Google Sheets"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+                {activeInstitution.workspaceConfig?.spreadsheetUrl && (
+                  <a
+                    href={activeInstitution.workspaceConfig.spreadsheetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-slate-200 bg-white p-1.5 text-emerald-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-400"
+                    title="Buka Google Spreadsheet Lembaga"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 hover:text-red-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                  title={`Keluar (${user?.email || 'Google'})`}
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Tab Bar */}
+        <div className="border-t border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 sm:px-6">
+            {/* Primary 7 Tabs */}
+            <nav
+              aria-label="Navigasi Utama PKBM Digital"
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              {primaryTabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeView === tab.id;
                 return (
                   <button
-                    key={item.id}
+                    key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setActiveView(item.id);
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
+                    onClick={() => setActiveView(tab.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
                       active
-                        ? 'bg-blue-50 text-blue-800'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        ? tab.highlight
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-blue-700 text-white shadow-xs'
+                        : tab.highlight
+                        ? 'border border-dashed border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/70 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50'
+                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <span className="flex items-center gap-2.5">
-                      <Icon
-                        className={`h-4 w-4 shrink-0 ${
-                          active ? 'text-blue-700' : 'text-slate-400'
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{tab.label}</span>
+                    {tab.badge !== undefined && (
+                      <span
+                        className={`ml-0.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none ${
+                          active
+                            ? 'bg-white/20 text-white'
+                            : 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300'
                         }`}
-                      />
-                      <span>{item.label}</span>
-                    </span>
-                    {item.badge !== undefined && (
-                      <span className="font-mono text-[11px] font-bold text-red-700 tabular-nums">
-                        {item.badge}
+                      >
+                        {tab.badge}
                       </span>
                     )}
                   </button>
                 );
               })}
-            </div>
-          ))}
-        </nav>
+            </nav>
 
-        {/* Google Workspace Footer */}
-        <div className="border-t border-slate-200 p-4">
-          <p className="text-xs font-semibold text-slate-700">
-            Workspace ({activeInstitution.kode})
-          </p>
-          {needsAuth ? (
-            <div className="mt-2 space-y-2">
-              <GoogleSignInButton
-                onClick={handleGoogleLogin}
-                disabled={isLoggingIn}
-              />
-            </div>
-          ) : (
-            <div className="mt-2 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="truncate font-medium text-slate-800">
-                  {user?.email || 'Terhubung'}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                  title="Keluar akun Google"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                </button>
+            {/* Secondary Utility Strip */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5 text-[11px] dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {utilityTabs.map((ut) => {
+                  const Icon = ut.icon;
+                  const active = activeView === ut.id;
+                  return (
+                    <button
+                      key={ut.id}
+                      type="button"
+                      onClick={() => setActiveView(ut.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors whitespace-nowrap ${
+                        active
+                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                          : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{ut.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              {activeInstitution.workspaceConfig && (
-                <div className="space-y-1 text-[11px]">
-                  <a
-                    href={activeInstitution.workspaceConfig.spreadsheetUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded border border-slate-200 px-2.5 py-1 text-slate-700 hover:bg-slate-50"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" />
-                      Sheets Lembaga
-                    </span>
-                    <ExternalLink className="h-3 w-3 text-slate-400" />
-                  </a>
-                  <a
-                    href={activeInstitution.workspaceConfig.driveFolderUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded border border-slate-200 px-2.5 py-1 text-slate-700 hover:bg-slate-50"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <FolderOpen className="h-3.5 w-3.5 text-blue-700" />
-                      Drive Lembaga
-                    </span>
-                    <ExternalLink className="h-3 w-3 text-slate-400" />
-                  </a>
-                </div>
-              )}
+              <div className="hidden items-center gap-2 font-mono text-[11px] text-slate-500 dark:text-slate-400 lg:flex">
+                <span>
+                  Lembaga: <strong className="text-slate-700 dark:text-slate-200">{activeInstitution.kode}</strong>
+                </span>
+                <span>·</span>
+                <span>{instLearners.length} WB</span>
+                <span>·</span>
+                <span>
+                  {activeInstitution.workspaceConfig?.spreadsheetId
+                    ? 'Sheets & Drive Terhubung'
+                    : 'Sheets Lokal (Siap Sinkron)'}
+                </span>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content Area */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top Bar */}
-        <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs sm:px-8">
-          <div className="flex items-center gap-3 min-w-0">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="no-print mx-auto max-w-7xl px-4 pt-4 sm:px-6">
+          <div
+            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-xs font-medium shadow-xs ${
+              toast.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/60 dark:text-emerald-200'
+                : toast.type === 'error'
+                ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-200'
+                : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-200'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{toast.text}</span>
+            </span>
             <button
               type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-              aria-label="Buka menu navigasi"
+              onClick={() => setToast(null)}
+              className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10"
+              aria-label="Tutup pesan"
             >
-              <Menu className="h-5 w-5" />
+              <X className="h-3.5 w-3.5" />
             </button>
-            <div className="flex items-center gap-2 text-sm truncate">
-              <span className="hidden text-slate-400 md:inline">
-                {activeView === 'dinas'
-                  ? 'Dinas Pendidikan'
-                  : activeInstitution.nama}
-              </span>
-              <span className="hidden text-slate-300 md:inline">/</span>
-              <span className="font-semibold text-slate-900 truncate">
-                {currentNavLabel}
-              </span>
-            </div>
           </div>
+        </div>
+      )}
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            {needsAuth ? (
-              <GoogleSignInButton
-                onClick={handleGoogleLogin}
-                disabled={isLoggingIn}
-              />
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleLoadFromSheets}
-                  disabled={isSyncing}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`}
-                  />
-                  <span>Muat Sheets</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={requestIncrementalSync}
-                  disabled={isSyncing}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 whitespace-nowrap"
-                >
-                  <UploadCloud className="h-3.5 w-3.5" />
-                  <span className="font-mono tabular-nums">
-                    Incremental Sync ({pendingDeltaTotal})
-                  </span>
-                </button>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Toast */}
-        {toast && (
-          <div className="no-print mx-auto mt-4 w-full max-w-7xl px-4 sm:px-8">
-            <div
-              className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-xs font-medium ${
-                toast.type === 'success'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : toast.type === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-800'
-                  : 'border-blue-200 bg-blue-50 text-blue-800'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>{toast.text}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setToast(null)}
-                className="rounded p-0.5 hover:bg-black/5"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
+      {/* Main Content Workspace */}
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        {activeView === 'dashboard' && (
+          <AnalyticsDashboard
+            learners={instLearners}
+            documents={instDocuments}
+            attendance={instAttendance}
+            quizzes={instQuizzes}
+            attempts={instAttempts}
+            notifications={instNotifications}
+            onInspectLearner={(id) => {
+              setSelectedLearnerId(id);
+              setActiveView('learners');
+            }}
+            onOpenCard={(id) => {
+              setCardTargetLearnerId(id);
+              setActiveView('cards');
+            }}
+            onOpenNotifications={() => setActiveView('jadwal')}
+            onStartQuiz={() => {
+              setQuizDefaultTab('pengerjaan');
+              setActiveView('quizzes');
+            }}
+          />
         )}
 
-        {/* Active View */}
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8 sm:py-8">
-          {activeView === 'dinas' && (
-            <DinasDashboard
-              institutions={institutions}
-              learners={learners}
-              attendance={attendance}
-              attempts={attempts}
-              modules={modules}
-              notifications={notifications}
-              onSwitchInstitution={(instId) => {
-                setActiveInstitutionId(instId);
-                setActiveView('dashboard');
-              }}
-            />
-          )}
+        {activeView === 'learners' && (
+          <LearnerManagement
+            institutionId={activeInstitution.id}
+            learners={instLearners}
+            documents={instDocuments}
+            attendance={instAttendance}
+            attempts={instAttempts}
+            isWorkspaceConnected={!needsAuth}
+            selectedLearnerId={selectedLearnerId}
+            onSelectLearnerId={setSelectedLearnerId}
+            onAddLearnerWithDocs={handleAddLearnerWithDocs}
+            onUpdateLearner={(l) => {
+              setLearners((prev) =>
+                prev.map((item) => (item.id === l.id ? l : item))
+              );
+              showToast('success', `Data ${l.nama} diperbarui.`);
+            }}
+            onDeleteLearner={(id) => {
+              const target = learners.find((l) => l.id === id);
+              setConfirmState({
+                title: 'Hapus Data Warga Belajar?',
+                description: `Data profil ${
+                  target?.nama || id
+                } akan dihapus dari daftar aktif lembaga.`,
+                confirmLabel: 'Hapus Data',
+                tone: 'danger',
+                action: async () => {
+                  setLearners((prev) => prev.filter((l) => l.id !== id));
+                  showToast('success', 'Data warga belajar dihapus.');
+                },
+              });
+            }}
+            onOpenCard={(id) => {
+              setCardTargetLearnerId(id);
+              setActiveView('cards');
+            }}
+            onOpenQrProfile={(nisn) => setStandaloneNisn(nisn)}
+          />
+        )}
 
-          {activeView === 'dashboard' && (
-            <AnalyticsDashboard
-              learners={instLearners}
-              attendance={instAttendance}
-              attempts={instAttempts}
-              notifications={instNotifications}
-              onInspectLearner={(id) => {
-                setSelectedLearnerId(id);
-                setActiveView('learners');
-              }}
-              onOpenCard={(id) => {
-                setCardTargetLearnerId(id);
-                setActiveView('cards');
-              }}
-              onOpenNotifications={() => setActiveView('notifications')}
-              onStartQuiz={() => {
-                setQuizDefaultTab('pengerjaan');
-                setActiveView('quizzes');
-              }}
-            />
-          )}
+        {activeView === 'attendance' && (
+          <AttendanceTracker
+            institutionId={activeInstitution.id}
+            learners={instLearners}
+            attendance={instAttendance}
+            leaveRequests={instLeaveRequests}
+            pendingOfflineCount={pendingOfflineCount}
+            isOfflineSimulated={isOfflineSimulated}
+            isOnlineBrowser={isOnlineBrowser}
+            onToggleOfflineSim={() => setIsOfflineSimulated((v) => !v)}
+            onSyncOfflineQueue={handleSyncOfflineQueue}
+            onUpsertAttendance={handleUpsertAttendance}
+            onBulkMarkPresent={(tanggal, learnerIds, modePembelajaran) => {
+              setAttendance((prev) => {
+                const next = [...prev];
+                for (const lid of learnerIds) {
+                  const idx = next.findIndex(
+                    (a) => a.tanggal === tanggal && a.learnerId === lid
+                  );
+                  const rec: AttendanceRecord = {
+                    id: `ABS-${tanggal}-${lid}`,
+                    institutionId: activeInstitution.id,
+                    tanggal,
+                    learnerId: lid,
+                    status: 'Hadir',
+                    modePembelajaran,
+                    waktuCatat: '08:00',
+                    sumber: 'Manual',
+                    catatan: '',
+                  };
+                  if (idx >= 0) next[idx] = rec;
+                  else next.push(rec);
+                }
+                return next;
+              });
+              showToast(
+                'success',
+                `Seluruh warga belajar pada ${tanggal} (${modePembelajaran}) ditandai Hadir.`
+              );
+            }}
+            onResolveLeaveRequest={handleResolveLeaveRequest}
+          />
+        )}
 
-          {activeView === 'learners' && (
-            <LearnerManagement
-              institutionId={activeInstitution.id}
-              learners={instLearners}
-              documents={instDocuments}
-              attendance={instAttendance}
-              attempts={instAttempts}
-              selectedLearnerId={selectedLearnerId}
-              onSelectLearnerId={setSelectedLearnerId}
-              onAddLearner={(l) => {
-                setLearners((prev) => [...prev, l]);
-                showToast('success', `Warga belajar ${l.nama} ditambahkan.`);
-              }}
-              onUpdateLearner={(l) => {
-                setLearners((prev) =>
-                  prev.map((item) => (item.id === l.id ? l : item))
-                );
-                showToast('success', `Data ${l.nama} diperbarui.`);
-              }}
-              onDeleteLearner={(id) => {
-                const target = learners.find((l) => l.id === id);
-                setConfirmState({
-                  title: 'Hapus Data Warga Belajar?',
-                  description: `Data profil ${
-                    target?.nama || id
-                  } akan dihapus dari daftar aktif lembaga.`,
-                  confirmLabel: 'Hapus Data',
-                  tone: 'danger',
-                  action: async () => {
-                    setLearners((prev) => prev.filter((l) => l.id !== id));
-                    showToast('success', 'Data warga belajar dihapus.');
-                  },
-                });
-              }}
-              onOpenCard={(id) => {
-                setCardTargetLearnerId(id);
-                setActiveView('cards');
-              }}
-            />
-          )}
+        {activeView === 'modules' && (
+          <ModuleManager
+            institution={activeInstitution}
+            subjects={instSubjects}
+            modules={instModules}
+            learners={instLearners}
+            attendance={instAttendance}
+            quizzes={instQuizzes}
+            attempts={instAttempts}
+            isWorkspaceConnected={!needsAuth}
+            onAddSubject={(subj) => {
+              setSubjects((prev) => [subj, ...prev]);
+              showToast('success', `Mata pelajaran "${subj.namaMapel}" ditambahkan.`);
+            }}
+            onDeleteSubject={(id) => {
+              setSubjects((prev) => prev.filter((s) => s.id !== id));
+              showToast('info', 'Mata pelajaran dihapus.');
+            }}
+            onAddModuleWithFile={handleAddModuleWithFile}
+            onDeleteModule={(id) => {
+              setModules((prev) => prev.filter((m) => m.id !== id));
+              showToast('info', 'Materi belajar dihapus.');
+            }}
+            onStartModuleQuiz={(quizId) => {
+              setQuizPreselectedQuizId(quizId);
+              setQuizDefaultTab('pengerjaan');
+              setActiveView('quizzes');
+            }}
+          />
+        )}
 
-          {activeView === 'modules' && (
-            <ModuleManager
-              institution={activeInstitution}
-              modules={instModules}
-              learners={instLearners}
-              attendance={instAttendance}
-              quizzes={instQuizzes}
-              attempts={instAttempts}
-              onAddModule={(mod) => {
-                setModules((prev) => [mod, ...prev]);
-                showToast('success', `Modul "${mod.judul}" ditambahkan.`);
-              }}
-              onStartModuleQuiz={(quizId) => {
-                setQuizPreselectedQuizId(quizId);
-                setQuizDefaultTab('pengerjaan');
-                setActiveView('quizzes');
-              }}
-            />
-          )}
+        {activeView === 'jadwal' && (
+          <ScheduleAndInfo
+            institutionId={activeInstitution.id}
+            schedules={instSchedules}
+            announcements={instAnnouncements}
+            subjects={instSubjects}
+            notifications={instNotifications}
+            isWorkspaceConnected={!needsAuth}
+            onAddSchedule={(item) => {
+              setSchedules((prev) => [item, ...prev]);
+              showToast('success', `Jadwal ${item.mapel} (${item.hari}) disimpan.`);
+            }}
+            onDeleteSchedule={(id) => {
+              setSchedules((prev) => prev.filter((s) => s.id !== id));
+              showToast('info', 'Jadwal KBM dihapus.');
+            }}
+            onAddAnnouncement={(ann) => {
+              setAnnouncements((prev) => [ann, ...prev]);
+              showToast('success', `Pengumuman "${ann.judul}" diterbitkan.`);
+            }}
+            onDeleteAnnouncement={(id) => {
+              setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+              showToast('info', 'Pengumuman dihapus.');
+            }}
+            onScanCompetencies={handleScanCompetencies}
+            onRequestSendEmail={handleRequestSendEmail}
+            onSendWhatsApp={handleOpenWhatsAppAlert}
+            onGenerateRemedialForAlert={handleGenerateRemedialFromAlert}
+            onMarkResolved={(id) => {
+              setNotifications((prev) =>
+                prev.map((n) =>
+                  n.id === id ? { ...n, statusKirim: 'Ditandai Selesai' } : n
+                )
+              );
+            }}
+            onConnectWorkspace={handleGoogleLogin}
+          />
+        )}
 
-          {activeView === 'documents' && (
-            <DocumentVault
-              learners={instLearners}
-              documents={instDocuments}
-              isWorkspaceConnected={!needsAuth}
-              workspaceConfig={activeInstitution.workspaceConfig}
-              onUploadDocument={handleUploadDocument}
-              onDeleteDocument={handleDeleteDocument}
-              onConnectWorkspace={handleGoogleLogin}
-            />
-          )}
+        {activeView === 'quizzes' && (
+          <QuizSystem
+            institutionId={activeInstitution.id}
+            learners={instLearners}
+            modules={instModules}
+            quizzes={instQuizzes}
+            attempts={instAttempts}
+            initialTab={quizDefaultTab}
+            preselectedLearnerId={quizPreselectedLearnerId}
+            preselectedQuizId={quizPreselectedQuizId}
+            onAddQuiz={(q) => {
+              setQuizzes((prev) => [q, ...prev]);
+              showToast('success', `Paket soal "${q.judul}" disimpan.`);
+            }}
+            onAddQuestionToQuiz={(quizId, question: QuizQuestion) => {
+              setQuizzes((prev) =>
+                prev.map((q) =>
+                  q.id === quizId ? { ...q, soal: [...q.soal, question] } : q
+                )
+              );
+              showToast('success', 'Soal baru ditambahkan ke paket ujian.');
+            }}
+            onBulkAddQuestionsToQuiz={(quizId, newQuestions: QuizQuestion[]) => {
+              setQuizzes((prev) =>
+                prev.map((q) =>
+                  q.id === quizId
+                    ? { ...q, soal: [...q.soal, ...newQuestions] }
+                    : q
+                )
+              );
+              showToast(
+                'success',
+                `${newQuestions.length} soal massal berhasil diimpor ke paket ujian.`
+              );
+            }}
+            onDeleteQuiz={(id) => {
+              setQuizzes((prev) => prev.filter((q) => q.id !== id));
+              showToast('info', 'Paket soal dihapus.');
+            }}
+            onSubmitAttempt={handleSubmitAttempt}
+            onOpenStandaloneExam={(kodePaket) =>
+              setStandaloneExamCode(kodePaket)
+            }
+          />
+        )}
 
-          {activeView === 'attendance' && (
-            <AttendanceTracker
-              institutionId={activeInstitution.id}
-              learners={instLearners}
-              attendance={instAttendance}
-              leaveRequests={instLeaveRequests}
-              pendingOfflineCount={pendingOfflineCount}
-              isOfflineSimulated={isOfflineSimulated}
-              isOnlineBrowser={isOnlineBrowser}
-              onToggleOfflineSim={() => setIsOfflineSimulated((v) => !v)}
-              onSyncOfflineQueue={handleSyncOfflineQueue}
-              onUpsertAttendance={handleUpsertAttendance}
-              onBulkMarkPresent={(tanggal, learnerIds, modePembelajaran) => {
-                setAttendance((prev) => {
-                  const next = [...prev];
-                  for (const lid of learnerIds) {
-                    const idx = next.findIndex(
-                      (a) => a.tanggal === tanggal && a.learnerId === lid
-                    );
-                    const rec: AttendanceRecord = {
-                      id: `ABS-${tanggal}-${lid}`,
-                      institutionId: activeInstitution.id,
-                      tanggal,
-                      learnerId: lid,
-                      status: 'Hadir',
-                      modePembelajaran,
-                      waktuCatat: '08:00',
-                      sumber: 'Manual',
-                      catatan: '',
-                    };
-                    if (idx >= 0) next[idx] = rec;
-                    else next.push(rec);
-                  }
-                  return next;
-                });
-                showToast(
-                  'success',
-                  `Seluruh warga belajar pada ${tanggal} (${modePembelajaran}) ditandai Hadir.`
-                );
-              }}
-              onResolveLeaveRequest={handleResolveLeaveRequest}
-            />
-          )}
+        {activeView === 'documents' && (
+          <PortfolioAndDocuments
+            learners={instLearners}
+            documents={instDocuments}
+            attendance={instAttendance}
+            attempts={instAttempts}
+            isWorkspaceConnected={!needsAuth}
+            workspaceConfig={activeInstitution.workspaceConfig}
+            onUploadDocument={handleUploadDocument}
+            onDeleteDocument={handleDeleteDocument}
+            onConnectWorkspace={handleGoogleLogin}
+            onSaveReportToDrive={handleSaveReportToDrive}
+          />
+        )}
 
-          {activeView === 'quizzes' && (
-            <QuizSystem
-              institutionId={activeInstitution.id}
-              learners={instLearners}
-              modules={instModules}
-              quizzes={instQuizzes}
-              attempts={instAttempts}
-              initialTab={quizDefaultTab}
-              preselectedLearnerId={quizPreselectedLearnerId}
-              preselectedQuizId={quizPreselectedQuizId}
-              onAddQuiz={(q) => {
-                setQuizzes((prev) => [q, ...prev]);
-                showToast('success', `Paket soal "${q.judul}" disimpan.`);
-              }}
-              onDeleteQuiz={(id) => {
-                setQuizzes((prev) => prev.filter((q) => q.id !== id));
-                showToast('info', 'Paket soal dihapus.');
-              }}
-              onSubmitAttempt={handleSubmitAttempt}
-            />
-          )}
+        {activeView === 'dinas' && (
+          <DinasDashboard
+            institutions={institutions}
+            learners={learners}
+            attendance={attendance}
+            attempts={attempts}
+            modules={modules}
+            notifications={notifications}
+            onSwitchInstitution={(instId) => {
+              setActiveInstitutionId(instId);
+              setActiveView('dashboard');
+            }}
+          />
+        )}
 
-          {activeView === 'notifications' && (
-            <TutorNotifications
-              notifications={instNotifications}
-              isWorkspaceConnected={!needsAuth}
-              onScanCompetencies={handleScanCompetencies}
-              onRequestSendEmail={handleRequestSendEmail}
-              onSendWhatsApp={handleOpenWhatsAppAlert}
-              onGenerateRemedialForAlert={handleGenerateRemedialFromAlert}
-              onMarkResolved={(id) => {
-                setNotifications((prev) =>
-                  prev.map((n) =>
-                    n.id === id ? { ...n, statusKirim: 'Ditandai Selesai' } : n
-                  )
-                );
-              }}
-              onConnectWorkspace={handleGoogleLogin}
-            />
-          )}
+        {activeView === 'cards' && (
+          <IdCardPrinter
+            learners={instLearners}
+            documents={instDocuments}
+            attendance={instAttendance}
+            attempts={instAttempts}
+            initialLearnerId={cardTargetLearnerId}
+            initialVerifyCode={
+              initialQueryParams.nisn || initialQueryParams.verify
+            }
+            onOpenQrProfile={(nisn) => setStandaloneNisn(nisn)}
+          />
+        )}
 
-          {activeView === 'reports' && (
-            <ProgressReports
-              learners={instLearners}
-              attendance={instAttendance}
-              attempts={instAttempts}
-              isWorkspaceConnected={!needsAuth}
-              onSaveReportToDrive={handleSaveReportToDrive}
-            />
-          )}
+        {activeView === 'portal' && (
+          <LearnerPortal
+            institution={activeInstitution}
+            learners={instLearners}
+            modules={instModules}
+            documents={instDocuments}
+            attendance={instAttendance}
+            quizzes={instQuizzes}
+            attempts={instAttempts}
+            leaveRequests={instLeaveRequests}
+            onSubmitLeaveRequest={(req) => {
+              setLeaveRequests((prev) => [req, ...prev]);
+              showToast(
+                'success',
+                `Pengajuan ${req.jenis} tanggal ${req.tanggal} tercatat.`
+              );
+            }}
+            onStartQuizAsLearner={(learnerId, quizId) => {
+              setQuizPreselectedLearnerId(learnerId);
+              setQuizPreselectedQuizId(quizId);
+              setQuizDefaultTab('pengerjaan');
+              setActiveView('quizzes');
+            }}
+          />
+        )}
 
-          {activeView === 'cards' && (
-            <IdCardPrinter
-              learners={instLearners}
-              documents={instDocuments}
-              attendance={instAttendance}
-              attempts={instAttempts}
-              initialLearnerId={cardTargetLearnerId}
-              initialVerifyCode={initialVerifyParam}
-            />
-          )}
-
-          {activeView === 'portal' && (
-            <LearnerPortal
-              institution={activeInstitution}
-              learners={instLearners}
-              modules={instModules}
-              documents={instDocuments}
-              attendance={instAttendance}
-              quizzes={instQuizzes}
-              attempts={instAttempts}
-              leaveRequests={instLeaveRequests}
-              onSubmitLeaveRequest={(req) => {
-                setLeaveRequests((prev) => [req, ...prev]);
-                showToast(
-                  'success',
-                  `Pengajuan ${req.jenis} tanggal ${req.tanggal} tercatat.`
-                );
-              }}
-              onStartQuizAsLearner={(learnerId, quizId) => {
-                setQuizPreselectedLearnerId(learnerId);
-                setQuizPreselectedQuizId(quizId);
-                setQuizDefaultTab('pengerjaan');
-                setActiveView('quizzes');
-              }}
-            />
-          )}
-
-          {activeView === 'settings' && (
-            <InstitutionSettings
-              institutions={institutions}
-              activeInstitution={activeInstitution}
-              isWorkspaceConnected={!needsAuth}
-              isLoggingIn={isLoggingIn}
-              isSyncing={isSyncing}
-              deltaPreview={deltaPreview}
-              syncBaseline={syncBaseline}
-              onSelectInstitution={(id) => {
-                setActiveInstitutionId(id);
-                setSelectedLearnerId(null);
-              }}
-              onAddInstitution={(inst) => {
-                setInstitutions((prev) => [...prev, inst]);
-                showToast(
-                  'success',
-                  `Lembaga "${inst.nama}" berhasil ditambahkan.`
-                );
-              }}
-              onUpdateInstitution={(inst) => {
-                setInstitutions((prev) =>
-                  prev.map((i) => (i.id === inst.id ? inst : i))
-                );
-              }}
-              onGoogleSignIn={handleGoogleLogin}
-              onProvisionWorkspaceForInst={handleProvisionWorkspaceForInst}
-              onRunIncrementalSync={requestIncrementalSync}
-              onLoadFromSheets={handleLoadFromSheets}
-            />
-          )}
-        </main>
-      </div>
+        {activeView === 'settings' && (
+          <InstitutionSettings
+            institutions={institutions}
+            activeInstitution={activeInstitution}
+            isWorkspaceConnected={!needsAuth}
+            isLoggingIn={isLoggingIn}
+            isSyncing={isSyncing}
+            deltaPreview={deltaPreview}
+            syncBaseline={syncBaseline}
+            onSelectInstitution={(id) => {
+              setActiveInstitutionId(id);
+              setSelectedLearnerId(null);
+            }}
+            onAddInstitution={(inst) => {
+              setInstitutions((prev) => [...prev, inst]);
+              showToast(
+                'success',
+                `Lembaga "${inst.nama}" berhasil ditambahkan.`
+              );
+            }}
+            onUpdateInstitution={(inst) => {
+              setInstitutions((prev) =>
+                prev.map((i) => (i.id === inst.id ? inst : i))
+              );
+            }}
+            onGoogleSignIn={handleGoogleLogin}
+            onProvisionWorkspaceForInst={handleProvisionWorkspaceForInst}
+            onRunIncrementalSync={requestIncrementalSync}
+            onLoadFromSheets={handleLoadFromSheets}
+          />
+        )}
+      </main>
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
@@ -1696,29 +2047,29 @@ export default function App() {
         }}
       />
 
-      {/* WhatsApp Direct Alert Preview Modal (No window.open used) */}
+      {/* WhatsApp Direct Alert Preview Modal */}
       {waPreviewModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h3 className="text-base font-bold text-slate-900">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
               Pratinjau Pesan WhatsApp ke Tutor
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Penerima: {waPreviewModal.notif.tutorNama} (
               {waPreviewModal.notif.tutorTelepon || 'Nomor WhatsApp Tutor'})
             </p>
-            <pre className="mt-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3.5 font-sans text-xs leading-relaxed text-slate-800">
+            <pre className="mt-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3.5 font-sans text-xs leading-relaxed text-slate-800 dark:border-slate-800 dark:bg-slate-800/70 dark:text-slate-200">
               {waPreviewModal.message}
             </pre>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setWaPreviewModal(null)}
-                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Tutup
               </button>

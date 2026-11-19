@@ -1,5 +1,11 @@
 export type ProgramType = 'Paket A' | 'Paket B' | 'Paket C' | 'Kursus Vokasi';
 
+export type JenjangLabel =
+  | 'Paket A (SD)'
+  | 'Paket B (SMP)'
+  | 'Paket C (SMA)'
+  | 'Kursus Vokasi';
+
 export type LearnerStatus = 'Aktif' | 'Cuti' | 'Lulus';
 
 export type AttendanceStatus = 'Hadir' | 'Izin' | 'Sakit' | 'Alfa';
@@ -10,14 +16,17 @@ export type DocumentCategory =
   | 'KTP / Identitas'
   | 'Ijazah Sebelumnya'
   | 'Kartu Keluarga'
+  | 'Akta Kelahiran'
   | 'Portofolio Tugas'
+  | 'Bukti Keaktifan'
   | 'Materi Belajar'
-  | 'Surat Keterangan';
+  | 'Surat Keterangan'
+  | 'Dokumen Lainnya';
 
 export interface SkkWeights {
-  tatapMuka: number; // e.g., 40 (%)
-  tutorial: number;  // e.g., 30 (%)
-  mandiri: number;   // e.g., 30 (%)
+  tatapMuka: number;
+  tutorial: number;
+  mandiri: number;
 }
 
 export interface GoogleWorkspaceConfig {
@@ -52,9 +61,15 @@ export interface Learner {
   id: string;
   institutionId: string;
   nisn: string;
-  pin: string; // 4-6 digit PIN for Portal Mandiri Warga Belajar
+  nik?: string;
+  pin: string;
   nama: string;
+  jk?: 'L' | 'P';
+  tempatLahir?: string;
+  tanggalLahir?: string;
   program: ProgramType;
+  kelas?: string; // e.g. 'Kelas 1' .. 'Kelas 12'
+  tahunAjaran?: string; // e.g. '2026/2027'
   rombel: string;
   tutorNama: string;
   tutorEmail: string;
@@ -72,6 +87,7 @@ export interface LearnerDocument {
   institutionId: string;
   learnerId: string;
   learnerNama: string;
+  nisn?: string;
   moduleId?: string;
   kategori: DocumentCategory;
   namaFile: string;
@@ -94,7 +110,17 @@ export interface AttendanceRecord {
   waktuCatat: string;
   catatan?: string;
   pendingSync?: boolean;
-  sumber?: 'Manual' | 'QR Offline' | 'Pengajuan Mandiri';
+  sumber?: 'Manual' | 'QR Live' | 'QR Foto/PDF' | 'QR Offline' | 'Pengajuan Mandiri';
+}
+
+export interface SubjectMaster {
+  id: string;
+  institutionId: string;
+  jenjang: JenjangLabel;
+  kelas: string;
+  namaMapel: string;
+  tutorNama: string;
+  kkm: number;
 }
 
 export interface LearningModule {
@@ -103,12 +129,36 @@ export interface LearningModule {
   kode: string;
   judul: string;
   program: ProgramType;
+  kelas?: string;
   mataPelajaran: string;
-  bobotSkk: number; // e.g., 2, 3, 4 SKK
+  bobotSkk: number;
   targetNilai: number;
   deskripsi: string;
   materiNama?: string;
   materiDriveUrl?: string;
+  materiDriveFileId?: string;
+}
+
+export interface ScheduleItem {
+  id: string;
+  institutionId: string;
+  hari: string;
+  jamMulai: string;
+  jamSelesai: string;
+  jenjang: JenjangLabel;
+  kelas: string;
+  metode: 'Tatap Muka' | 'Tutorial' | 'Belajar Mandiri' | 'Daring / Online';
+  mapel: string;
+  tutor: string;
+}
+
+export interface Announcement {
+  id: string;
+  institutionId: string;
+  judul: string;
+  targetJenjang: string;
+  isi: string;
+  tanggal: string;
 }
 
 export interface LeaveRequest {
@@ -135,12 +185,14 @@ export interface QuizQuestion {
 export interface Quiz {
   id: string;
   institutionId: string;
+  kodePaket?: string; // Unique CBT short link code e.g. MTK12A
   moduleId?: string;
   judul: string;
   mataPelajaran: string;
   program: ProgramType | 'Semua Program';
+  kelas?: string;
   modePembelajaran: LearningMode;
-  targetNilai: number; // KKM
+  targetNilai: number;
   durasiMenit: number;
   tutorPembuat: string;
   tanggalDibuat: string;
@@ -203,7 +255,7 @@ export interface TutorNotification {
 
 export interface SyncBaseline {
   institutionId: string;
-  hashes: Record<string, Record<string, string>>; // tabName -> { rowId -> hash }
+  hashes: Record<string, Record<string, string>>;
   lastDeltaSummary?: {
     timestamp: string;
     updatedRows: number;
@@ -213,15 +265,14 @@ export interface SyncBaseline {
 }
 
 export type ActiveView =
-  | 'dinas'
   | 'dashboard'
   | 'learners'
-  | 'modules'
-  | 'documents'
   | 'attendance'
+  | 'modules'
+  | 'jadwal'
   | 'quizzes'
-  | 'notifications'
-  | 'reports'
+  | 'documents'
   | 'cards'
-  | 'settings'
-  | 'portal';
+  | 'portal'
+  | 'dinas'
+  | 'settings';

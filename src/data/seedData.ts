@@ -1,14 +1,46 @@
 import {
+  Announcement,
   AttendanceRecord,
   Institution,
+  JenjangLabel,
   Learner,
   LearnerDocument,
   LearningModule,
   LeaveRequest,
+  ProgramType,
   Quiz,
   QuizAttempt,
+  ScheduleItem,
+  SubjectMaster,
   TutorNotification,
 } from '../types';
+
+export function programToJenjangLabel(program: ProgramType): JenjangLabel {
+  if (program === 'Paket A') return 'Paket A (SD)';
+  if (program === 'Paket B') return 'Paket B (SMP)';
+  if (program === 'Paket C') return 'Paket C (SMA)';
+  return 'Kursus Vokasi';
+}
+
+export function jenjangLabelToProgram(jenjang: string): ProgramType {
+  if (jenjang.includes('Paket A')) return 'Paket A';
+  if (jenjang.includes('Paket B')) return 'Paket B';
+  if (jenjang.includes('Vokasi')) return 'Kursus Vokasi';
+  return 'Paket C';
+}
+
+export function getKelasOptionsForProgram(program: string): string[] {
+  if (program.includes('Paket A')) {
+    return ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+  }
+  if (program.includes('Paket B')) {
+    return ['Kelas 7', 'Kelas 8', 'Kelas 9'];
+  }
+  if (program.includes('Vokasi')) {
+    return ['Vokasi Dasar', 'Vokasi Lanjutan'];
+  }
+  return ['Kelas 10', 'Kelas 11', 'Kelas 12'];
+}
 
 export const INITIAL_INSTITUTIONS: Institution[] = [
   {
@@ -69,9 +101,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-001',
     institutionId: 'LMB-001',
     nisn: '0084512901',
+    nik: '3573011405080001',
     pin: '1234',
     nama: 'Rizky Pratama Wijaya',
+    jk: 'L',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2008-05-14',
     program: 'Paket C',
+    kelas: 'Kelas 12',
+    tahunAjaran: '2026/2027',
     rombel: 'XII-IPS-1',
     tutorNama: 'Drs. Hendra Kusuma, M.Pd.',
     tutorEmail: 'hendra.kusuma@lenterabelajar.sch.id',
@@ -87,9 +125,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-002',
     institutionId: 'LMB-001',
     nisn: '0091123408',
+    nik: '3573026208090003',
     pin: '2345',
     nama: 'Nadia Azzahra Putri',
+    jk: 'P',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2009-08-22',
     program: 'Paket C',
+    kelas: 'Kelas 12',
+    tahunAjaran: '2026/2027',
     rombel: 'XII-IPA-1',
     tutorNama: 'Drs. Hendra Kusuma, M.Pd.',
     tutorEmail: 'hendra.kusuma@lenterabelajar.sch.id',
@@ -105,10 +149,16 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-003',
     institutionId: 'LMB-001',
     nisn: '0103349122',
+    nik: '3573041103100002',
     pin: '3456',
     nama: 'Bagas Saputra',
-    program: 'Kursus Vokasi',
-    rombel: 'Vokasi-TI-A',
+    jk: 'L',
+    tempatLahir: 'Pasuruan',
+    tanggalLahir: '2007-03-11',
+    program: 'Paket C',
+    kelas: 'Kelas 11',
+    tahunAjaran: '2026/2027',
+    rombel: 'XI-Vokasi-TI',
     tutorNama: 'Ratna Sari Dewi, S.Kom.',
     tutorEmail: 'ratna.dewi@lenterabelajar.sch.id',
     tutorTelepon: '6281234567802',
@@ -122,9 +172,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-004',
     institutionId: 'LMB-001',
     nisn: '0115509834',
+    nik: '3573015509110005',
     pin: '4567',
     nama: 'Siti Nurhaliza',
+    jk: 'P',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2011-09-15',
     program: 'Paket B',
+    kelas: 'Kelas 9',
+    tahunAjaran: '2026/2027',
     rombel: 'IX-B-1',
     tutorNama: 'Ahmad Fauzi, S.Pd.',
     tutorEmail: 'ahmad.fauzi@lenterabelajar.sch.id',
@@ -139,10 +195,16 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-005',
     institutionId: 'LMB-001',
     nisn: '0079823415',
+    nik: '3573051912070004',
     pin: '5678',
     nama: 'Dimas Arya Nugroho',
-    program: 'Kursus Vokasi',
-    rombel: 'Vokasi-TI-A',
+    jk: 'L',
+    tempatLahir: 'Blitar',
+    tanggalLahir: '2007-12-19',
+    program: 'Paket B',
+    kelas: 'Kelas 8',
+    tahunAjaran: '2026/2027',
+    rombel: 'VIII-B-1',
     tutorNama: 'Ratna Sari Dewi, S.Kom.',
     tutorEmail: 'ratna.dewi@lenterabelajar.sch.id',
     tutorTelepon: '6281234567802',
@@ -156,9 +218,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-2026-006',
     institutionId: 'LMB-001',
     nisn: '0124410982',
+    nik: '3573034804120001',
     pin: '6789',
     nama: 'Melati Kusumaningrum',
+    jk: 'P',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2012-04-08',
     program: 'Paket A',
+    kelas: 'Kelas 6',
+    tahunAjaran: '2026/2027',
     rombel: 'VI-A-1',
     tutorNama: 'Ahmad Fauzi, S.Pd.',
     tutorEmail: 'ahmad.fauzi@lenterabelajar.sch.id',
@@ -169,14 +237,66 @@ export const INITIAL_LEARNERS: Learner[] = [
     alamat: 'Jl. Raya Tlogomas No. 9, Malang',
     tanggalBergabung: '2026-07-22',
   },
+  {
+    id: 'WB-2026-007',
+    institutionId: 'LMB-001',
+    nisn: '0135521004',
+    nik: '3573031002130002',
+    pin: '7890',
+    nama: 'Bima Sakti Putra',
+    jk: 'L',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2013-02-10',
+    program: 'Paket A',
+    kelas: 'Kelas 5',
+    tahunAjaran: '2026/2027',
+    rombel: 'V-A-1',
+    tutorNama: 'Ahmad Fauzi, S.Pd.',
+    tutorEmail: 'ahmad.fauzi@lenterabelajar.sch.id',
+    tutorTelepon: '6281234567803',
+    targetKompetensi: 72,
+    status: 'Aktif',
+    telepon: '0812-9001-2231',
+    alamat: 'Jl. Gajayana No. 18, Malang',
+    tanggalBergabung: '2026-07-24',
+  },
+  {
+    id: 'WB-2026-008',
+    institutionId: 'LMB-001',
+    nisn: '0109821120',
+    nik: '3573022706100001',
+    pin: '8901',
+    nama: 'Farah Diba Rahma',
+    jk: 'P',
+    tempatLahir: 'Kepanjen',
+    tanggalLahir: '2010-06-27',
+    program: 'Paket C',
+    kelas: 'Kelas 10',
+    tahunAjaran: '2026/2027',
+    rombel: 'X-C-1',
+    tutorNama: 'Drs. Hendra Kusuma, M.Pd.',
+    tutorEmail: 'hendra.kusuma@lenterabelajar.sch.id',
+    tutorTelepon: '6281234567801',
+    targetKompetensi: 75,
+    status: 'Aktif',
+    telepon: '0858-1120-9910',
+    alamat: 'Jl. Kawi Selatan No. 5, Malang',
+    tanggalBergabung: '2026-07-28',
+  },
   // Lembaga 2: PKBM Harapan Bangsa Batu
   {
     id: 'WB-BTU-001',
     institutionId: 'LMB-002',
     nisn: '0098871201',
+    nik: '3579011205090001',
     pin: '1122',
     nama: 'Fajar Ramadhan',
+    jk: 'L',
+    tempatLahir: 'Batu',
+    tanggalLahir: '2009-05-12',
     program: 'Paket C',
+    kelas: 'Kelas 11',
+    tahunAjaran: '2026/2027',
     rombel: 'XI-IPS-Batu',
     tutorNama: 'Dewi Lestari, M.Pd.',
     tutorEmail: 'dewi.lestari@harapanbangsa.sch.id',
@@ -191,9 +311,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-BTU-002',
     institutionId: 'LMB-002',
     nisn: '0109981234',
+    nik: '3579025407100002',
     pin: '2233',
     nama: 'Ayu Kartika Sari',
+    jk: 'P',
+    tempatLahir: 'Batu',
+    tanggalLahir: '2010-07-14',
     program: 'Paket B',
+    kelas: 'Kelas 8',
+    tahunAjaran: '2026/2027',
     rombel: 'VIII-Batu',
     tutorNama: 'Dewi Lestari, M.Pd.',
     tutorEmail: 'dewi.lestari@harapanbangsa.sch.id',
@@ -208,9 +334,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-BTU-003',
     institutionId: 'LMB-002',
     nisn: '0087712390',
+    nik: '3579031903080003',
     pin: '3344',
     nama: 'Galang Prakoso',
+    jk: 'L',
+    tempatLahir: 'Malang',
+    tanggalLahir: '2008-03-19',
     program: 'Paket C',
+    kelas: 'Kelas 12',
+    tahunAjaran: '2026/2027',
     rombel: 'XII-Batu',
     tutorNama: 'Slamet Riyadi, S.Pd.',
     tutorEmail: 'slamet.riyadi@harapanbangsa.sch.id',
@@ -226,9 +358,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-SBY-001',
     institutionId: 'LMB-003',
     nisn: '0071190231',
+    nik: '3578010408070002',
     pin: '4455',
     nama: 'Kevin Pratama Putra',
+    jk: 'L',
+    tempatLahir: 'Surabaya',
+    tanggalLahir: '2007-08-04',
     program: 'Kursus Vokasi',
+    kelas: 'Kelas 12',
+    tahunAjaran: '2026/2027',
     rombel: 'Desain-Web-1',
     tutorNama: 'Bambang Hermanto, S.T.',
     tutorEmail: 'bambang@cakrawalavokasi.sch.id',
@@ -243,9 +381,15 @@ export const INITIAL_LEARNERS: Learner[] = [
     id: 'WB-SBY-002',
     institutionId: 'LMB-003',
     nisn: '0082201944',
+    nik: '3578046511080001',
     pin: '5566',
     nama: 'Tiara Puspita',
+    jk: 'P',
+    tempatLahir: 'Sidoarjo',
+    tanggalLahir: '2008-11-25',
     program: 'Kursus Vokasi',
+    kelas: 'Kelas 11',
+    tahunAjaran: '2026/2027',
     rombel: 'Administrasi-Perkantoran',
     tutorNama: 'Bambang Hermanto, S.T.',
     tutorEmail: 'bambang@cakrawalavokasi.sch.id',
@@ -258,6 +402,54 @@ export const INITIAL_LEARNERS: Learner[] = [
   },
 ];
 
+export const INITIAL_SUBJECTS: SubjectMaster[] = [
+  {
+    id: 'MPL-001',
+    institutionId: 'LMB-001',
+    jenjang: 'Paket C (SMA)',
+    kelas: 'Kelas 12',
+    namaMapel: 'Literasi Bahasa Indonesia',
+    tutorNama: 'Drs. Hendra Kusuma, M.Pd.',
+    kkm: 75,
+  },
+  {
+    id: 'MPL-002',
+    institutionId: 'LMB-001',
+    jenjang: 'Paket B (SMP)',
+    kelas: 'Kelas 9',
+    namaMapel: 'Numerasi Terapan',
+    tutorNama: 'Ahmad Fauzi, S.Pd.',
+    kkm: 75,
+  },
+  {
+    id: 'MPL-003',
+    institutionId: 'LMB-001',
+    jenjang: 'Paket C (SMA)',
+    kelas: 'Kelas 11',
+    namaMapel: 'Teknologi Informasi',
+    tutorNama: 'Ratna Sari Dewi, S.Kom.',
+    kkm: 78,
+  },
+  {
+    id: 'MPL-004',
+    institutionId: 'LMB-001',
+    jenjang: 'Paket A (SD)',
+    kelas: 'Kelas 6',
+    namaMapel: 'Berhitung & Literasi Dasar',
+    tutorNama: 'Ahmad Fauzi, S.Pd.',
+    kkm: 72,
+  },
+  {
+    id: 'MPL-BTU-01',
+    institutionId: 'LMB-002',
+    jenjang: 'Paket C (SMA)',
+    kelas: 'Kelas 12',
+    namaMapel: 'Ekonomi Terapan',
+    tutorNama: 'Dewi Lestari, M.Pd.',
+    kkm: 75,
+  },
+];
+
 export const INITIAL_MODULES: LearningModule[] = [
   {
     id: 'MOD-C-LIT1',
@@ -265,6 +457,7 @@ export const INITIAL_MODULES: LearningModule[] = [
     kode: 'PKC-IND-01',
     judul: 'Modul 1: Literasi Teks Informasi & Korespondensi Resmi',
     program: 'Paket C',
+    kelas: 'Kelas 12',
     mataPelajaran: 'Literasi Bahasa Indonesia',
     bobotSkk: 3,
     targetNilai: 75,
@@ -279,6 +472,7 @@ export const INITIAL_MODULES: LearningModule[] = [
     kode: 'PKB-MTK-02',
     judul: 'Modul 2: Numerasi Terapan & Aritmatika Usaha Mikro',
     program: 'Paket B',
+    kelas: 'Kelas 9',
     mataPelajaran: 'Numerasi Terapan',
     bobotSkk: 3,
     targetNilai: 75,
@@ -292,7 +486,8 @@ export const INITIAL_MODULES: LearningModule[] = [
     institutionId: 'LMB-001',
     kode: 'VOK-TIK-03',
     judul: 'Modul 3: Pengolahan Data Spreadsheet & Arsip Digital',
-    program: 'Kursus Vokasi',
+    program: 'Paket C',
+    kelas: 'Kelas 11',
     mataPelajaran: 'Teknologi Informasi',
     bobotSkk: 4,
     targetNilai: 78,
@@ -307,6 +502,7 @@ export const INITIAL_MODULES: LearningModule[] = [
     kode: 'PKA-NUM-01',
     judul: 'Modul 1: Berhitung Dasar & Pemecahan Masalah Harian',
     program: 'Paket A',
+    kelas: 'Kelas 6',
     mataPelajaran: 'Numerasi Terapan',
     bobotSkk: 2,
     targetNilai: 72,
@@ -318,6 +514,7 @@ export const INITIAL_MODULES: LearningModule[] = [
     kode: 'BTU-PKC-01',
     judul: 'Modul 1: Ekonomi Agrowisata & Literasi Keuangan',
     program: 'Paket C',
+    kelas: 'Kelas 12',
     mataPelajaran: 'Ekonomi Terapan',
     bobotSkk: 3,
     targetNilai: 75,
@@ -329,10 +526,81 @@ export const INITIAL_MODULES: LearningModule[] = [
     kode: 'SBY-VOK-01',
     judul: 'Modul 1: Otomasi Perkantoran & Basis Data Spreadsheet',
     program: 'Kursus Vokasi',
+    kelas: 'Kelas 12',
     mataPelajaran: 'Teknologi Informasi',
     bobotSkk: 4,
     targetNilai: 78,
     deskripsi: 'Standardisasi pelaporan digital dan pengarsipan cloud.',
+  },
+];
+
+export const INITIAL_SCHEDULES: ScheduleItem[] = [
+  {
+    id: 'JDW-001',
+    institutionId: 'LMB-001',
+    hari: 'Senin',
+    jamMulai: '08:00',
+    jamSelesai: '10:00',
+    jenjang: 'Paket C (SMA)',
+    kelas: 'Kelas 12',
+    metode: 'Tatap Muka',
+    mapel: 'Literasi Bahasa Indonesia',
+    tutor: 'Drs. Hendra Kusuma, M.Pd.',
+  },
+  {
+    id: 'JDW-002',
+    institutionId: 'LMB-001',
+    hari: 'Rabu',
+    jamMulai: '13:00',
+    jamSelesai: '15:00',
+    jenjang: 'Paket B (SMP)',
+    kelas: 'Kelas 9',
+    metode: 'Tutorial',
+    mapel: 'Numerasi Terapan',
+    tutor: 'Ahmad Fauzi, S.Pd.',
+  },
+  {
+    id: 'JDW-003',
+    institutionId: 'LMB-001',
+    hari: 'Jumat',
+    jamMulai: '15:30',
+    jamSelesai: '17:30',
+    jenjang: 'Paket C (SMA)',
+    kelas: 'Kelas 11',
+    metode: 'Daring / Online',
+    mapel: 'Teknologi Informasi',
+    tutor: 'Ratna Sari Dewi, S.Kom.',
+  },
+  {
+    id: 'JDW-004',
+    institutionId: 'LMB-001',
+    hari: 'Sabtu',
+    jamMulai: '09:00',
+    jamSelesai: '11:00',
+    jenjang: 'Paket A (SD)',
+    kelas: 'Kelas 6',
+    metode: 'Belajar Mandiri',
+    mapel: 'Berhitung & Literasi Dasar',
+    tutor: 'Ahmad Fauzi, S.Pd.',
+  },
+];
+
+export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'INF-001',
+    institutionId: 'LMB-001',
+    judul: 'Jadwal Evaluasi Tengah Semester & Pengumpulan Portofolio Drive',
+    targetJenjang: 'Semua Jenjang',
+    isi: 'Warga belajar Paket A, B, dan C dimohon melengkapi berkas KK/KTP/Ijazah dan menyelesaikan evaluasi modul sebelum akhir bulan melalui Short Link CBT atau Portal Mandiri.',
+    tanggal: '2026-11-12',
+  },
+  {
+    id: 'INF-002',
+    institutionId: 'LMB-001',
+    judul: 'Presensi Menggunakan Kartu QR Code (KTWB) Digital',
+    targetJenjang: 'Paket C (SMA)',
+    isi: 'Harap membawa Kartu Tanda Warga Belajar (cetak atau PDF di ponsel) saat kegiatan tatap muka maupun tutorial untuk pemindaian cepat di pos presensi.',
+    tanggal: '2026-11-10',
   },
 ];
 
@@ -342,6 +610,7 @@ export const INITIAL_DOCUMENTS: LearnerDocument[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-001',
     learnerNama: 'Rizky Pratama Wijaya',
+    nisn: '0084512901',
     moduleId: 'MOD-C-LIT1',
     kategori: 'Ijazah Sebelumnya',
     namaFile: 'Ijazah_SMP_Rizky_Pratama.pdf',
@@ -356,6 +625,7 @@ export const INITIAL_DOCUMENTS: LearnerDocument[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-001',
     learnerNama: 'Rizky Pratama Wijaya',
+    nisn: '0084512901',
     kategori: 'KTP / Identitas',
     namaFile: 'KTP_Rizky_Pratama.jpg',
     mimeType: 'image/jpeg',
@@ -369,6 +639,7 @@ export const INITIAL_DOCUMENTS: LearnerDocument[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-002',
     learnerNama: 'Nadia Azzahra Putri',
+    nisn: '0091123408',
     moduleId: 'MOD-C-LIT1',
     kategori: 'Portofolio Tugas',
     namaFile: 'Esai_Literasi_Ekonomi_Kreatif_Nadia.pdf',
@@ -383,6 +654,7 @@ export const INITIAL_DOCUMENTS: LearnerDocument[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-003',
     learnerNama: 'Bagas Saputra',
+    nisn: '0103349122',
     kategori: 'Kartu Keluarga',
     namaFile: 'KK_Bagas_Saputra.pdf',
     mimeType: 'application/pdf',
@@ -396,6 +668,7 @@ export const INITIAL_DOCUMENTS: LearnerDocument[] = [
     institutionId: 'LMB-002',
     learnerId: 'WB-BTU-001',
     learnerNama: 'Fajar Ramadhan',
+    nisn: '0098871201',
     kategori: 'KTP / Identitas',
     namaFile: 'KTP_Fajar_Ramadhan_Batu.jpg',
     mimeType: 'image/jpeg',
@@ -431,13 +704,22 @@ export const INITIAL_ATTENDANCE: AttendanceRecord[] = RECENT_DATES.flatMap(
   (tanggal, dIdx) =>
     INITIAL_LEARNERS.map((learner, lIdx) => {
       let status: AttendanceRecord['status'] = 'Hadir';
-      if (learner.id === 'WB-2026-005' && (dIdx === 2 || dIdx === 6 || dIdx === 9 || dIdx === 10)) {
+      if (
+        learner.id === 'WB-2026-005' &&
+        (dIdx === 2 || dIdx === 6 || dIdx === 9 || dIdx === 10)
+      ) {
         status = 'Alfa';
-      } else if (learner.id === 'WB-2026-004' && (dIdx === 4 || dIdx === 8 || dIdx === 11)) {
+      } else if (
+        learner.id === 'WB-2026-004' &&
+        (dIdx === 4 || dIdx === 8 || dIdx === 11)
+      ) {
         status = 'Izin';
       } else if (learner.id === 'WB-2026-003' && dIdx === 5) {
         status = 'Sakit';
-      } else if (learner.id === 'WB-BTU-003' && (dIdx === 1 || dIdx === 5 || dIdx === 9)) {
+      } else if (
+        learner.id === 'WB-BTU-003' &&
+        (dIdx === 1 || dIdx === 5 || dIdx === 9)
+      ) {
         status = 'Alfa';
       }
 
@@ -466,10 +748,12 @@ export const INITIAL_QUIZZES: Quiz[] = [
   {
     id: 'QZ-LIT-01',
     institutionId: 'LMB-001',
+    kodePaket: 'LIT12A',
     moduleId: 'MOD-C-LIT1',
     judul: 'Evaluasi Literasi & Pemahaman Teks Informasi',
     mataPelajaran: 'Literasi Bahasa Indonesia',
     program: 'Paket C',
+    kelas: 'Kelas 12',
     modePembelajaran: 'Tatap Muka',
     targetNilai: 75,
     durasiMenit: 15,
@@ -541,10 +825,12 @@ export const INITIAL_QUIZZES: Quiz[] = [
   {
     id: 'QZ-NUM-02',
     institutionId: 'LMB-001',
+    kodePaket: 'NUM09B',
     moduleId: 'MOD-B-NUM1',
     judul: 'Asesmen Numerasi Terapan & Aritmatika Usaha',
     mataPelajaran: 'Numerasi Terapan',
-    program: 'Semua Program',
+    program: 'Paket B',
+    kelas: 'Kelas 9',
     modePembelajaran: 'Tutorial',
     targetNilai: 75,
     durasiMenit: 20,
@@ -577,8 +863,7 @@ export const INITIAL_QUIZZES: Quiz[] = [
         pilihan: ['Rp475.000', 'Rp490.000', 'Rp500.000', 'Rp510.000'],
         kunciJawaban: 1,
         bobot: 25,
-        pembahasan:
-          '(1.800.000 + 650.000) / 5 = Rp490.000.',
+        pembahasan: '(1.800.000 + 650.000) / 5 = Rp490.000.',
       },
       {
         id: 'Q-NUM-4',
@@ -594,10 +879,12 @@ export const INITIAL_QUIZZES: Quiz[] = [
   {
     id: 'QZ-TIK-03',
     institutionId: 'LMB-001',
+    kodePaket: 'TIK11C',
     moduleId: 'MOD-V-TIK1',
     judul: 'Uji Kompetensi Pengolahan Data & Spreadsheet',
     mataPelajaran: 'Teknologi Informasi',
-    program: 'Kursus Vokasi',
+    program: 'Paket C',
+    kelas: 'Kelas 11',
     modePembelajaran: 'Mandiri',
     targetNilai: 78,
     durasiMenit: 15,
@@ -669,10 +956,12 @@ export const INITIAL_QUIZZES: Quiz[] = [
   {
     id: 'QZ-BTU-01',
     institutionId: 'LMB-002',
+    kodePaket: 'EKO12B',
     moduleId: 'MOD-BTU-01',
     judul: 'Evaluasi Modul Agrowisata & Arus Kas',
     mataPelajaran: 'Ekonomi Terapan',
     program: 'Paket C',
+    kelas: 'Kelas 12',
     modePembelajaran: 'Tatap Muka',
     targetNilai: 75,
     durasiMenit: 15,
@@ -707,10 +996,12 @@ export const INITIAL_QUIZZES: Quiz[] = [
   {
     id: 'QZ-SBY-01',
     institutionId: 'LMB-003',
+    kodePaket: 'CLOUD1',
     moduleId: 'MOD-SBY-01',
     judul: 'Asesmen Otomasi Administrasi Cloud',
     mataPelajaran: 'Teknologi Informasi',
     program: 'Kursus Vokasi',
+    kelas: 'Kelas 12',
     modePembelajaran: 'Mandiri',
     targetNilai: 78,
     durasiMenit: 15,
@@ -881,7 +1172,6 @@ export const INITIAL_ATTEMPTS: QuizAttempt[] = [
       { questionId: 'Q-NUM-4', jawabanDipilih: 2, benar: true, durasiDetik: 60 },
     ],
   },
-  // Attempts for Batu & Surabaya
   {
     id: 'ATT-BTU-001',
     institutionId: 'LMB-002',
@@ -987,7 +1277,7 @@ export const INITIAL_NOTIFICATIONS: TutorNotification[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-005',
     learnerNama: 'Dimas Arya Nugroho',
-    program: 'Kursus Vokasi',
+    program: 'Paket B',
     tutorNama: 'Ratna Sari Dewi, S.Kom.',
     tutorEmail: 'ratna.dewi@lenterabelajar.sch.id',
     tutorTelepon: '6281234567802',
@@ -1005,7 +1295,7 @@ export const INITIAL_NOTIFICATIONS: TutorNotification[] = [
     institutionId: 'LMB-001',
     learnerId: 'WB-2026-003',
     learnerNama: 'Bagas Saputra',
-    program: 'Kursus Vokasi',
+    program: 'Paket C',
     tutorNama: 'Ratna Sari Dewi, S.Kom.',
     tutorEmail: 'ratna.dewi@lenterabelajar.sch.id',
     tutorTelepon: '6281234567802',
@@ -1013,7 +1303,8 @@ export const INITIAL_NOTIFICATIONS: TutorNotification[] = [
     skorCapaian: 75,
     targetNilai: 78,
     riskLevel: 'Sedang',
-    pemicu: 'Skor evaluasi mendekati batas namun belum mencapai target (75 vs 78)',
+    pemicu:
+      'Skor evaluasi mendekati batas namun belum mencapai target (75 vs 78)',
     waktuTerdeteksi: '2026-11-10T13:25:00',
     statusKirim: 'Menunggu Tindakan',
   },

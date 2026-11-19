@@ -1,12 +1,16 @@
 import {
+  Announcement,
   AttendanceRecord,
   GoogleWorkspaceConfig,
+  JenjangLabel,
   Learner,
   LearnerDocument,
   LearningModule,
   LeaveRequest,
   Quiz,
   QuizAttempt,
+  ScheduleItem,
+  SubjectMaster,
   TutorNotification,
 } from '../types';
 
@@ -14,7 +18,10 @@ export const SHEET_TABS = [
   'Warga_Belajar',
   'Dokumen_Drive',
   'Absensi_Harian',
+  'Master_Mapel',
   'Modul_Pembelajaran',
+  'Jadwal_KBM',
+  'Pengumuman_PKBM',
   'Bank_Soal',
   'Hasil_Evaluasi',
   'Pengajuan_Izin',
@@ -41,10 +48,10 @@ export async function ensureWorkspaceResources(
   accessToken: string,
   existingSpreadsheetId?: string,
   existingFolderId?: string,
-  institutionName = 'Lentera Belajar'
+  institutionName = 'PKBM Lentera Belajar'
 ): Promise<GoogleWorkspaceConfig> {
-  const safeFolderName = `${institutionName} — Arsip Dokumen`;
-  const safeSheetName = `${institutionName} — Data Terpadu`;
+  const safeFolderName = `${institutionName} — Arsip Dokumen PKBM`;
+  const safeSheetName = `${institutionName} — Database PKBM Digital`;
 
   // 1. Ensure Google Drive Folder
   let driveFolderId = '';
@@ -233,7 +240,10 @@ export interface WorkspaceDataset {
   learners: Learner[];
   documents: LearnerDocument[];
   attendance: AttendanceRecord[];
+  subjects: SubjectMaster[];
   modules: LearningModule[];
+  schedules: ScheduleItem[];
+  announcements: Announcement[];
   quizzes: Quiz[];
   attempts: QuizAttempt[];
   leaveRequests: LeaveRequest[];
@@ -273,6 +283,12 @@ function buildTabPayload(
         'Telepon',
         'Alamat',
         'Tanggal Bergabung',
+        'NIK',
+        'JK',
+        'Tempat Lahir',
+        'Tanggal Lahir',
+        'Kelas',
+        'Tahun Ajaran',
       ],
       rows: data.learners.map((l) => [
         l.id,
@@ -290,6 +306,12 @@ function buildTabPayload(
         l.telepon,
         l.alamat,
         l.tanggalBergabung,
+        l.nik || '',
+        l.jk || 'L',
+        l.tempatLahir || '',
+        l.tanggalLahir || '',
+        l.kelas || '',
+        l.tahunAjaran || '2026/2027',
       ]),
     },
     Dokumen_Drive: {
@@ -350,6 +372,26 @@ function buildTabPayload(
         a.catatan || '',
       ]),
     },
+    Master_Mapel: {
+      header: [
+        'ID',
+        'Institution ID',
+        'Jenjang',
+        'Kelas',
+        'Nama Mapel',
+        'Tutor Pengampu',
+        'KKM',
+      ],
+      rows: data.subjects.map((s) => [
+        s.id,
+        s.institutionId,
+        s.jenjang,
+        s.kelas,
+        s.namaMapel,
+        s.tutorNama,
+        s.kkm,
+      ]),
+    },
     Modul_Pembelajaran: {
       header: [
         'ID',
@@ -363,6 +405,7 @@ function buildTabPayload(
         'Deskripsi',
         'Nama Materi',
         'URL Materi Drive',
+        'Kelas',
       ],
       rows: data.modules.map((m) => [
         m.id,
@@ -376,6 +419,51 @@ function buildTabPayload(
         m.deskripsi,
         m.materiNama || '',
         m.materiDriveUrl || '',
+        m.kelas || '',
+      ]),
+    },
+    Jadwal_KBM: {
+      header: [
+        'ID',
+        'Institution ID',
+        'Hari',
+        'Jam Mulai',
+        'Jam Selesai',
+        'Jenjang',
+        'Kelas',
+        'Metode',
+        'Mata Pelajaran',
+        'Tutor',
+      ],
+      rows: data.schedules.map((j) => [
+        j.id,
+        j.institutionId,
+        j.hari,
+        j.jamMulai,
+        j.jamSelesai,
+        j.jenjang,
+        j.kelas,
+        j.metode,
+        j.mapel,
+        j.tutor,
+      ]),
+    },
+    Pengumuman_PKBM: {
+      header: [
+        'ID',
+        'Institution ID',
+        'Judul',
+        'Target Jenjang',
+        'Isi',
+        'Tanggal',
+      ],
+      rows: data.announcements.map((a) => [
+        a.id,
+        a.institutionId,
+        a.judul,
+        a.targetJenjang,
+        a.isi,
+        a.tanggal,
       ]),
     },
     Bank_Soal: {
@@ -395,6 +483,8 @@ function buildTabPayload(
         'Assigned IDs',
         'Parent Quiz ID',
         'JSON Soal',
+        'Kode Paket',
+        'Kelas',
       ],
       rows: data.quizzes.map((q) => [
         q.id,
@@ -412,6 +502,8 @@ function buildTabPayload(
         JSON.stringify(q.assignedLearnerIds || []),
         q.parentQuizId || '',
         JSON.stringify(q.soal),
+        q.kodePaket || '',
+        q.kelas || '',
       ]),
     },
     Hasil_Evaluasi: {
@@ -555,11 +647,6 @@ export function previewIncrementalDelta(
   return { changedCount, newCount, unchangedCount };
 }
 
-/**
- * Incremental Sync (Delta Update):
- * Reads only column A IDs from each sheet tab, then sends batchUpdate ONLY for modified rows
- * and appends ONLY new rows. Unchanged rows require zero cell writes, avoiding script timeouts.
- */
 export async function incrementalSyncToSheets(
   accessToken: string,
   spreadsheetId: string,
@@ -570,7 +657,6 @@ export async function incrementalSyncToSheets(
 
   const payload = buildTabPayload(data);
 
-  // Read existing column A (IDs + header cell A1) across all tabs in one batchGet call
   const idRanges = SHEET_TABS.map((tab) => `${tab}!A1:A2000`);
   const queryParams = idRanges
     .map((r) => `ranges=${encodeURIComponent(r)}`)
@@ -599,9 +685,9 @@ export async function incrementalSyncToSheets(
     const idMap = new Map<string, number>();
     hasHeaderByTab[tab] = Boolean(colA[0] && colA[0][0] === 'ID');
     colA.forEach((cellArr, rowIdx) => {
-      if (rowIdx === 0) return; // skip header
+      if (rowIdx === 0) return;
       const idVal = cellArr[0];
-      if (idVal) idMap.set(idVal, rowIdx + 1); // 1-indexed sheet row
+      if (idVal) idMap.set(idVal, rowIdx + 1);
     });
     existingRowIndexByTab[tab] = idMap;
     existingRowCountByTab[tab] = colA.length;
@@ -758,6 +844,12 @@ export async function loadFromSheets(
           telepon: r[12] || '',
           alamat: r[13] || '',
           tanggalBergabung: r[14] || '2026-07-15',
+          nik: r[15] || '',
+          jk: (r[16] as 'L' | 'P') || 'L',
+          tempatLahir: r[17] || '',
+          tanggalLahir: r[18] || '',
+          kelas: r[19] || '',
+          tahunAjaran: r[20] || '2026/2027',
         }));
     } else if (vr.range.startsWith('Dokumen_Drive') && rows.length > 0) {
       result.documents = rows
@@ -793,6 +885,18 @@ export async function loadFromSheets(
           sumber: (r[7] as AttendanceRecord['sumber']) || 'Manual',
           catatan: r[8] || '',
         }));
+    } else if (vr.range.startsWith('Master_Mapel') && rows.length > 0) {
+      result.subjects = rows
+        .filter((r) => r[0] && r[4])
+        .map((r) => ({
+          id: r[0],
+          institutionId: r[1] || fallbackInstitutionId,
+          jenjang: (r[2] as JenjangLabel) || 'Paket C (SMA)',
+          kelas: r[3] || 'Kelas 12',
+          namaMapel: r[4],
+          tutorNama: r[5] || '',
+          kkm: Number(r[6]) || 75,
+        }));
     } else if (vr.range.startsWith('Modul_Pembelajaran') && rows.length > 0) {
       result.modules = rows
         .filter((r) => r[0] && r[3])
@@ -808,6 +912,33 @@ export async function loadFromSheets(
           deskripsi: r[8] || '',
           materiNama: r[9] || undefined,
           materiDriveUrl: r[10] || undefined,
+          kelas: r[11] || undefined,
+        }));
+    } else if (vr.range.startsWith('Jadwal_KBM') && rows.length > 0) {
+      result.schedules = rows
+        .filter((r) => r[0] && r[8])
+        .map((r) => ({
+          id: r[0],
+          institutionId: r[1] || fallbackInstitutionId,
+          hari: r[2] || 'Senin',
+          jamMulai: r[3] || '08:00',
+          jamSelesai: r[4] || '10:00',
+          jenjang: (r[5] as JenjangLabel) || 'Paket C (SMA)',
+          kelas: r[6] || 'Kelas 12',
+          metode: (r[7] as ScheduleItem['metode']) || 'Tatap Muka',
+          mapel: r[8],
+          tutor: r[9] || '',
+        }));
+    } else if (vr.range.startsWith('Pengumuman_PKBM') && rows.length > 0) {
+      result.announcements = rows
+        .filter((r) => r[0] && r[2])
+        .map((r) => ({
+          id: r[0],
+          institutionId: r[1] || fallbackInstitutionId,
+          judul: r[2],
+          targetJenjang: r[3] || 'Semua Jenjang',
+          isi: r[4] || '',
+          tanggal: r[5] || new Date().toISOString().slice(0, 10),
         }));
     } else if (vr.range.startsWith('Bank_Soal') && rows.length > 0) {
       result.quizzes = rows
@@ -842,6 +973,8 @@ export async function loadFromSheets(
             assignedLearnerIds: assignedIds.length ? assignedIds : undefined,
             parentQuizId: r[13] || undefined,
             soal,
+            kodePaket: r[15] || undefined,
+            kelas: r[16] || undefined,
           };
         });
     } else if (vr.range.startsWith('Hasil_Evaluasi') && rows.length > 0) {

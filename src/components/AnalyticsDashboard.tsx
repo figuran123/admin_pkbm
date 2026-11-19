@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpRight,
+  BarChart3,
   CheckCircle2,
   Clock,
   FileSpreadsheet,
@@ -11,13 +12,17 @@ import {
 import {
   AttendanceRecord,
   Learner,
+  LearnerDocument,
+  Quiz,
   QuizAttempt,
   TutorNotification,
 } from '../types';
 
 interface AnalyticsDashboardProps {
   learners: Learner[];
+  documents: LearnerDocument[];
   attendance: AttendanceRecord[];
+  quizzes: Quiz[];
   attempts: QuizAttempt[];
   notifications: TutorNotification[];
   onInspectLearner: (learnerId: string) => void;
@@ -32,9 +37,21 @@ function formatDuration(seconds: number): string {
   return `${m}m ${String(s).padStart(2, '0')}d`;
 }
 
+function extractKelasNumber(kelas?: string, program?: string): number {
+  if (kelas) {
+    const m = kelas.match(/(\d+)/);
+    if (m) return Number(m[1]);
+  }
+  if (program === 'Paket A') return 6;
+  if (program === 'Paket B') return 9;
+  return 12;
+}
+
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   learners,
+  documents,
   attendance,
+  quizzes,
   attempts,
   notifications,
   onInspectLearner,
@@ -42,13 +59,81 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   onOpenNotifications,
   onStartQuiz,
 }) => {
+  const [taFilter, setTaFilter] = useState<string>('Semua');
+  const [programFilter, setProgramFilter] = useState<string>('Semua');
+  const [hoveredClassIdx, setHoveredClassIdx] = useState<number | null>(null);
   const [hoveredSubject, setHoveredSubject] = useState<string | null>(null);
   const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
-  const [programFilter, setProgramFilter] = useState<string>('Semua');
+
+  const availableTAs = useMemo(() => {
+    const set = new Set<string>(['2026/2027', '2025/2026', '2024/2025']);
+    learners.forEach((l) => {
+      if (l.tahunAjaran) set.add(l.tahunAjaran);
+    });
+    return Array.from(set).sort().reverse();
+  }, [learners]);
+
+  const taLearners = useMemo(
+    () =>
+      learners.filter(
+        (l) => taFilter === 'Semua' || (l.tahunAjaran || '2026/2027') === taFilter
+      ),
+    [learners, taFilter]
+  );
 
   const activeLearners = useMemo(
-    () => learners.filter((l) => l.status === 'Aktif'),
-    [learners]
+    () => taLearners.filter((l) => l.status === 'Aktif'),
+    [taLearners]
+  );
+
+  const jenjangCounts = useMemo(() => {
+    const a = activeLearners.filter((l) => l.program === 'Paket A').length;
+    const b = activeLearners.filter((l) => l.program === 'Paket B').length;
+    const c = activeLearners.filter(
+      (l) => l.program === 'Paket C' || l.program === 'Kursus Vokasi'
+    ).length;
+    return { a, b, c };
+  }, [activeLearners]);
+
+  const latestAttendanceDate = useMemo(() => {
+    if (attendance.length === 0) return '2026-11-15';
+    return attendance
+      .map((a) => a.tanggal)
+      .sort()
+      .slice(-1)[0];
+  }, [attendance]);
+
+  const hadirHariIni = useMemo(() => {
+    const ids = new Set(taLearners.map((l) => l.id));
+    return attendance.filter(
+      (a) =>
+        a.tanggal === latestAttendanceDate &&
+        a.status === 'Hadir' &&
+        ids.has(a.learnerId)
+    ).length;
+  }, [attendance, latestAttendanceDate, taLearners]);
+
+  const classCounts = useMemo(() => {
+    const counts = Array.from({ length: 12 }, (_, idx) => ({
+      kelasNum: idx + 1,
+      label: `K${idx + 1}`,
+      fullLabel: `Kelas ${idx + 1}`,
+      count: 0,
+      jenjang:
+        idx < 6 ? 'Paket A' : idx < 9 ? 'Paket B' : 'Paket C / Vokasi',
+    }));
+    for (const l of activeLearners) {
+      const kNum = extractKelasNumber(l.kelas, l.program);
+      if (kNum >= 1 && kNum <= 12) {
+        counts[kNum - 1].count += 1;
+      }
+    }
+    return counts;
+  }, [activeLearners]);
+
+  const maxClassCount = useMemo(
+    () => Math.max(1, ...classCounts.map((c) => c.count)),
+    [classCounts]
   );
 
   const overallAttendanceRate = useMemo(() => {
@@ -73,7 +158,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   }, [attempts]);
 
   const pendingAlertsCount = useMemo(
-    () => notifications.filter((n) => n.statusKirim === 'Menunggu Tindakan').length,
+    () =>
+      notifications.filter((n) => n.statusKirim === 'Menunggu Tindakan').length,
     [notifications]
   );
 
@@ -117,7 +203,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       .slice(-10)
       .map(([tanggal, val]) => ({
         tanggal,
-        label: tanggal.slice(5), // MM-DD
+        label: tanggal.slice(5),
         rate: val.total > 0 ? Math.round((val.present / val.total) * 100) : 0,
         present: val.present,
         total: val.total,
@@ -126,12 +212,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   // Individual evaluation matrix
   const learnerRows = useMemo(() => {
-    return learners
+    return taLearners
       .filter((l) => programFilter === 'Semua' || l.program === programFilter)
       .map((learner) => {
         const lAtt = attendance.filter((a) => a.learnerId === learner.id);
         const lPresent = lAtt.filter((a) => a.status === 'Hadir').length;
-        const attRate = lAtt.length > 0 ? Math.round((lPresent / lAtt.length) * 100) : 100;
+        const attRate =
+          lAtt.length > 0 ? Math.round((lPresent / lAtt.length) * 100) : 100;
 
         const lAttempts = attempts
           .filter((at) => at.learnerId === learner.id)
@@ -158,138 +245,337 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         return {
           learner,
           attRate,
-          lAttTotal: lAtt.length,
           avgScore,
           attemptCount: lAttempts.length,
           avgDuration,
           isAchieved,
         };
       });
-  }, [learners, attendance, attempts, programFilter]);
+  }, [taLearners, attendance, attempts, programFilter]);
 
   return (
-    <div className="space-y-8">
-      {/* Header Row */}
-      <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6">
+      {/* Header Row with Tahun Ajaran Filter */}
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium tracking-wide text-slate-500">
-            Ringkasan Evaluasi Akademik · Tahun Ajaran 2026/2027
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Ringkasan Data Warga Belajar, Kelas 1–12 & Analitik Kompetensi Real-Time
           </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Dasbor Analitik Capaian Warga Belajar
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Dashboard Utama PKBM Digital
           </h1>
         </div>
+
         <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+            <label
+              htmlFor="dashTaFilter"
+              className="text-xs font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap"
+            >
+              Tahun Ajaran:
+            </label>
+            <select
+              id="dashTaFilter"
+              value={taFilter}
+              onChange={(e) => setTaFilter(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-slate-900 focus:outline-none dark:text-slate-100"
+            >
+              <option value="Semua" className="dark:bg-slate-900">
+                Semua Tahun Ajaran
+              </option>
+              {availableTAs.map((ta) => (
+                <option key={ta} value={ta} className="dark:bg-slate-900">
+                  {ta}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={onOpenNotifications}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 whitespace-nowrap"
           >
             <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <span className="tabular-nums">
-              Notifikasi Tutor ({pendingAlertsCount})
-            </span>
+            <span className="tabular-nums">EWS Tutor ({pendingAlertsCount})</span>
           </button>
+
           <button
             type="button"
             onClick={onStartQuiz}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800 whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-800 whitespace-nowrap"
           >
-            <span>Mulai Evaluasi Real-Time</span>
+            <span>Ruang Ujian CBT</span>
             <ArrowUpRight className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* 4-Column KPI Strip */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-medium text-slate-500">
+      {/* 5-Column PKBM Digital KPI Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="rounded-xl border border-slate-200 border-t-4 border-t-sky-600 bg-white p-4 shadow-xs dark:border-slate-800 dark:border-t-sky-500 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Warga Belajar Aktif
           </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {activeLearners.length}
           </p>
-          <p className="mt-2 text-xs text-slate-500">
-            Total {learners.length} terdaftar lintas 4 program
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Total {taLearners.length} terdaftar · Kehadiran {overallAttendanceRate}%
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-medium text-slate-500">
-            Rata-Rata Kehadiran Harian
+        <div className="rounded-xl border border-slate-200 border-t-4 border-t-red-600 bg-white p-4 shadow-xs dark:border-slate-800 dark:border-t-red-500 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Paket A (SD)
           </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
-            {overallAttendanceRate}%
+          <p className="mt-2 font-mono text-3xl font-bold text-red-700 tabular-nums dark:text-red-400">
+            {jenjangCounts.a}
           </p>
-          <p className="mt-2 text-xs text-emerald-700">
-            {overallAttendanceRate >= 80
-              ? 'Memenuhi ambang kehadiran minimal 75%'
-              : 'Perlu peningkatan kehadiran harian'}
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Kelas 1 s.d. Kelas 6
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-medium text-slate-500">
-            Ketuntasan Evaluasi Soal
+        <div className="rounded-xl border border-slate-200 border-t-4 border-t-blue-900 bg-white p-4 shadow-xs dark:border-slate-800 dark:border-t-blue-500 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Paket B (SMP)
           </p>
-          <div className="mt-2 flex items-baseline gap-2.5">
-            <p className="font-mono text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
-              {competencyStats.passRate}%
-            </p>
-            <span className="font-mono text-xs text-slate-500 tabular-nums">
-              Rata-rata {competencyStats.avgScore} poin
-            </span>
-          </div>
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 tabular-nums">
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
-            <span>
-              Durasi rerata {formatDuration(competencyStats.avgDuration)}
-            </span>
+          <p className="mt-2 font-mono text-3xl font-bold text-blue-900 tabular-nums dark:text-blue-400">
+            {jenjangCounts.b}
+          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Kelas 7 s.d. Kelas 9
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-medium text-slate-500">
-            Peringatan Target Belum Tercapai
+        <div className="rounded-xl border border-slate-200 border-t-4 border-t-slate-600 bg-white p-4 shadow-xs dark:border-slate-800 dark:border-t-slate-400 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Paket C (SMA) / Vokasi
           </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-red-700 tabular-nums">
-            {pendingAlertsCount}
+          <p className="mt-2 font-mono text-3xl font-bold text-slate-700 tabular-nums dark:text-slate-200">
+            {jenjangCounts.c}
           </p>
-          <p className="mt-2 text-xs text-slate-600">
-            Menunggu pengiriman notifikasi ke tutor
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Kelas 10 s.d. Kelas 12
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 border-t-4 border-t-amber-500 bg-white p-4 shadow-xs dark:border-slate-800 dark:border-t-amber-400 dark:bg-slate-900">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Hadir Hari Ini ({latestAttendanceDate.slice(5)})
+          </p>
+          <p className="mt-2 font-mono text-3xl font-bold text-amber-600 tabular-nums dark:text-amber-400">
+            {hadirHariIni}
+          </p>
+          <p className="mt-1 font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400">
+            {quizzes.length} Paket Soal · {documents.length} Berkas
           </p>
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Chart 1: Capaian per Mata Pelajaran vs Target KKM */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
-          <div className="flex items-start justify-between gap-4">
+      {/* 2-Column Class Distribution Chart + K1..K12 Breakdown */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left: Grafik Warga Belajar per Kelas (1 - 12) */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-7">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
-                Capaian Kompetensi per Bidang vs Target KKM
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
+                <BarChart3 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                <span>Grafik Warga Belajar per Kelas (Kelas 1 – 12)</span>
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Perbandingan skor rata-rata individu terhadap ambang ketuntasan
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Sebaran peserta didik aktif berdasarkan jenjang kesetaraan
               </p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-slate-600 shrink-0">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600 dark:text-slate-400">
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-blue-700" />
-                Skor Rata-rata
+                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-red-600" />
+                Paket A (K1–6)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-slate-300" />
-                Target KKM
+                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-blue-900 dark:bg-blue-500" />
+                Paket B (K7–9)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-slate-600 dark:bg-slate-400" />
+                Paket C (K10–12)
               </span>
             </div>
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div className="mt-6 flex h-56 items-end gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
+            {classCounts.map((item, idx) => {
+              const heightPct = Math.round((item.count / maxClassCount) * 100);
+              const barColor =
+                item.kelasNum <= 6
+                  ? 'bg-red-600 hover:bg-red-500'
+                  : item.kelasNum <= 9
+                  ? 'bg-blue-900 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500'
+                  : 'bg-slate-600 hover:bg-slate-500 dark:bg-slate-500 dark:hover:bg-slate-400';
+
+              return (
+                <div
+                  key={item.label}
+                  onMouseEnter={() => setHoveredClassIdx(idx)}
+                  onMouseLeave={() => setHoveredClassIdx(null)}
+                  className="group flex flex-1 flex-col items-center justify-end h-full"
+                >
+                  <span
+                    className={`mb-1 font-mono text-[11px] font-bold tabular-nums transition-opacity ${
+                      hoveredClassIdx === idx || item.count > 0
+                        ? 'text-slate-700 dark:text-slate-200'
+                        : 'text-slate-300 dark:text-slate-600'
+                    }`}
+                  >
+                    {item.count}
+                  </span>
+                  <div className="flex w-full flex-1 items-end justify-center px-0.5">
+                    <div
+                      className={`w-full max-w-[34px] rounded-t transition-all duration-300 ${barColor}`}
+                      style={{
+                        height: `${Math.max(item.count > 0 ? 12 : 3, heightPct)}%`,
+                        opacity: item.count > 0 ? 1 : 0.2,
+                      }}
+                      title={`${item.fullLabel} (${item.jenjang}): ${item.count} WB`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex gap-2">
+            {classCounts.map((item) => (
+              <div
+                key={item.label}
+                className="flex-1 text-center font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-400"
+              >
+                {item.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Rincian Jumlah per Tingkatan Kelas */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-5 space-y-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              Rincian Jumlah per Tingkatan Kelas
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Rekapitulasi jumlah warga belajar aktif per kelas
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-xs font-bold text-red-700 dark:text-red-400">
+                Paket A (SD / Kelas 1–6)
+              </p>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {classCounts.slice(0, 6).map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-lg border border-red-200 bg-red-50/60 px-2 py-2 text-center dark:border-red-900/50 dark:bg-red-950/30"
+                  >
+                    <p className="font-mono text-[10px] font-semibold text-red-700 dark:text-red-400">
+                      {c.label}
+                    </p>
+                    <p className="font-mono text-base font-bold text-slate-900 tabular-nums dark:text-slate-100">
+                      {c.count}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-xs font-bold text-blue-900 dark:text-blue-400">
+                Paket B (SMP / Kelas 7–9)
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {classCounts.slice(6, 9).map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-lg border border-blue-200 bg-blue-50/60 px-2 py-2 text-center dark:border-blue-900/50 dark:bg-blue-950/30"
+                  >
+                    <p className="font-mono text-[10px] font-semibold text-blue-800 dark:text-blue-400">
+                      {c.label}
+                    </p>
+                    <p className="font-mono text-base font-bold text-slate-900 tabular-nums dark:text-slate-100">
+                      {c.count}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                Paket C (SMA / Kelas 10–12)
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {classCounts.slice(9, 12).map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800/70"
+                  >
+                    <p className="font-mono text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                      {c.label}
+                    </p>
+                    <p className="font-mono text-base font-bold text-slate-900 tabular-nums dark:text-slate-100">
+                      {c.count}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
+            <span className="text-slate-500 dark:text-slate-400">
+              Ketuntasan Evaluasi ({competencyStats.passRate}%) · Rerata{' '}
+              <strong className="font-mono text-slate-900 dark:text-slate-100">
+                {competencyStats.avgScore}
+              </strong>{' '}
+              poin
+            </span>
+            <span className="flex items-center gap-1 font-mono text-slate-500 tabular-nums dark:text-slate-400">
+              <Clock className="h-3.5 w-3.5" />
+              {formatDuration(competencyStats.avgDuration)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Competency Charts Row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Chart 1: Capaian per Mata Pelajaran vs Target KKM */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Capaian Kompetensi per Bidang vs Target KKM
+              </h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Perbandingan skor rata-rata individu terhadap ambang ketuntasan
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400 shrink-0">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-blue-700" />
+                Skor
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-xs bg-slate-400" />
+                KKM
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
             {subjectData.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">
+              <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                 Belum ada data pengerjaan soal.
               </p>
             ) : (
@@ -302,35 +588,33 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     onMouseEnter={() => setHoveredSubject(item.subject)}
                     onMouseLeave={() => setHoveredSubject(null)}
                     className={`rounded-lg p-2 transition-colors ${
-                      isHovered ? 'bg-slate-50' : ''
+                      isHovered ? 'bg-slate-50 dark:bg-slate-800/60' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {item.subject}
                       </span>
                       <div className="flex items-center gap-3 font-mono text-xs tabular-nums">
                         <span
                           className={
-                            isMet ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'
+                            isMet
+                              ? 'font-semibold text-emerald-700 dark:text-emerald-400'
+                              : 'font-semibold text-amber-700 dark:text-amber-400'
                           }
                         >
                           {item.avgScore} / {item.avgTarget}
                         </span>
-                        <span className="text-slate-400">
-                          ({item.count} sesi)
-                        </span>
+                        <span className="text-slate-400">({item.count} sesi)</span>
                       </div>
                     </div>
 
-                    <div className="relative mt-2 h-5 w-full overflow-hidden rounded bg-slate-100">
-                      {/* Target marker line */}
+                    <div className="relative mt-2 h-4 w-full overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
                       <div
-                        className="absolute top-0 bottom-0 z-10 w-0.5 bg-slate-500"
+                        className="absolute top-0 bottom-0 z-10 w-0.5 bg-slate-500 dark:bg-slate-300"
                         style={{ left: `${Math.min(100, item.avgTarget)}%` }}
                         title={`Target KKM: ${item.avgTarget}`}
                       />
-                      {/* Actual score bar */}
                       <div
                         className={`h-full rounded-l transition-all duration-300 ${
                           isMet ? 'bg-blue-700' : 'bg-amber-600'
@@ -346,22 +630,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Chart 2: Tren Kehadiran Harian SVG */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 Tren Kehadiran Harian Warga Belajar
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Persentase kehadiran pada 10 hari pertemuan terakhir
               </p>
             </div>
             {hoveredDayIndex !== null && attendanceTrend[hoveredDayIndex] && (
               <div className="text-right font-mono text-xs tabular-nums">
-                <p className="font-semibold text-slate-900">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
                   {attendanceTrend[hoveredDayIndex].tanggal}
                 </p>
-                <p className="text-blue-700">
+                <p className="text-blue-700 dark:text-blue-400">
                   {attendanceTrend[hoveredDayIndex].rate}% (
                   {attendanceTrend[hoveredDayIndex].present}/
                   {attendanceTrend[hoveredDayIndex].total} hadir)
@@ -370,9 +654,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             )}
           </div>
 
-          <div className="mt-6">
+          <div className="mt-5">
             {attendanceTrend.length === 0 ? (
-              <p className="py-12 text-center text-sm text-slate-500">
+              <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                 Belum ada catatan absensi harian.
               </p>
             ) : (
@@ -383,7 +667,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   role="img"
                   aria-label="Grafik tren kehadiran harian"
                 >
-                  {/* Grid lines */}
                   {[25, 50, 75, 100].map((val) => {
                     const y = 170 - (val / 100) * 140;
                     return (
@@ -393,7 +676,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           y1={y}
                           x2="540"
                           y2={y}
-                          stroke={val === 75 ? '#f59e0b' : '#e2e8f0'}
+                          stroke={val === 75 ? '#f59e0b' : '#94a3b8'}
+                          strokeOpacity={val === 75 ? 0.9 : 0.25}
                           strokeDasharray={val === 75 ? '4 4' : undefined}
                           strokeWidth="1"
                         />
@@ -409,7 +693,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     );
                   })}
 
-                  {/* Polyline & Area */}
                   {(() => {
                     const pts = attendanceTrend.map((d, idx) => {
                       const x =
@@ -428,11 +711,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
                     return (
                       <>
-                        <path d={areaPath} fill="#1d4ed8" fillOpacity="0.08" />
+                        <path d={areaPath} fill="#1d4ed8" fillOpacity="0.12" />
                         <path
                           d={linePath}
                           fill="none"
-                          stroke="#1d4ed8"
+                          stroke="#2563eb"
                           strokeWidth="2.5"
                           strokeLinejoin="round"
                           strokeLinecap="round"
@@ -448,7 +731,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                               cx={p.x}
                               cy={p.y}
                               r={hoveredDayIndex === idx ? 6 : 4}
-                              fill={p.rate < 75 ? '#d97706' : '#1d4ed8'}
+                              fill={p.rate < 75 ? '#d97706' : '#2563eb'}
                               stroke="#ffffff"
                               strokeWidth="2"
                             />
@@ -468,7 +751,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </svg>
               </div>
             )}
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Garis putus-putus amber menandakan batas minimal kehadiran 75%.
             </p>
           </div>
@@ -476,18 +759,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </div>
 
       {/* Individual Competency Evaluation Matrix */}
-      <div className="rounded-xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Pemantauan Kompetensi Individu Real-Time
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               Status ketercapaian target KKM dan kehadiran per warga belajar
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
             {['Semua', 'Paket A', 'Paket B', 'Paket C', 'Kursus Vokasi'].map(
               (prog) => (
                 <button
@@ -496,8 +779,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   onClick={() => setProgramFilter(prog)}
                   className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                     programFilter === prog
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
                 >
                   {prog}
@@ -510,9 +793,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600">
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
                 <th className="px-6 py-3">Warga Belajar</th>
-                <th className="px-4 py-3">Program / Rombel</th>
+                <th className="px-4 py-3">Jenjang / Kelas</th>
                 <th className="px-4 py-3 text-right">Kehadiran</th>
                 <th className="px-4 py-3 text-right">Rata-Rata Skor</th>
                 <th className="px-4 py-3 text-right">Durasi Rerata</th>
@@ -520,7 +803,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <th className="px-6 py-3 text-right">Aksi Cepat</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {learnerRows.map(
                 ({
                   learner,
@@ -532,28 +815,30 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 }) => (
                   <tr
                     key={learner.id}
-                    className="transition-colors hover:bg-slate-50/80"
+                    className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                   >
                     <td className="px-6 py-3.5">
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-slate-900 dark:text-slate-100">
                         {learner.nama}
                       </div>
-                      <div className="mt-0.5 font-mono text-xs text-slate-500 tabular-nums">
+                      <div className="mt-0.5 font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400">
                         {learner.id} · NISN {learner.nisn}
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600">
-                      <div className="font-medium text-slate-800">
-                        {learner.program}
+                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-300">
+                      <div className="font-medium text-slate-800 dark:text-slate-200">
+                        {learner.program} · {learner.kelas || learner.rombel}
                       </div>
-                      <div>{learner.rombel}</div>
+                      <div className="text-slate-500 dark:text-slate-400">
+                        {learner.tahunAjaran || '2026/2027'}
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums">
                       <span
                         className={
                           attRate >= 75
-                            ? 'font-semibold text-slate-800'
-                            : 'font-semibold text-red-700'
+                            ? 'font-semibold text-slate-800 dark:text-slate-200'
+                            : 'font-semibold text-red-700 dark:text-red-400'
                         }
                       >
                         {attRate}%
@@ -565,8 +850,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           <span
                             className={
                               avgScore >= learner.targetKompetensi
-                                ? 'font-semibold text-emerald-700'
-                                : 'font-semibold text-red-700'
+                                ? 'font-semibold text-emerald-700 dark:text-emerald-400'
+                                : 'font-semibold text-red-700 dark:text-red-400'
                             }
                           >
                             {avgScore}
@@ -583,17 +868,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         <span className="text-slate-400">Belum ada ujian</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600 tabular-nums">
+                    <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-600 tabular-nums dark:text-slate-400">
                       {attemptCount > 0 ? formatDuration(avgDuration) : '—'}
                     </td>
                     <td className="px-4 py-3.5">
                       {isAchieved ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                           <CheckCircle2 className="h-4 w-4 shrink-0" />
                           <span>Target Tercapai</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
                           <AlertTriangle className="h-4 w-4 shrink-0" />
                           <span>Perlu Pendampingan</span>
                         </span>
@@ -604,17 +889,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => onInspectLearner(learner.id)}
-                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
-                          title="Lihat detail riwayat belajar"
+                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 whitespace-nowrap"
                         >
                           <FileSpreadsheet className="mr-1 inline h-3.5 w-3.5" />
-                          Riwayat
+                          Detail
                         </button>
                         <button
                           type="button"
                           onClick={() => onOpenCard(learner.id)}
-                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
-                          title="Cetak kartu QR warga belajar"
+                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 whitespace-nowrap"
                         >
                           <QrCode className="mr-1 inline h-3.5 w-3.5" />
                           Kartu QR
@@ -623,8 +906,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           <button
                             type="button"
                             onClick={onOpenNotifications}
-                            className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 whitespace-nowrap"
-                            title="Buka antrean notifikasi tutor"
+                            className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60 whitespace-nowrap"
                           >
                             <Send className="mr-1 inline h-3.5 w-3.5" />
                             Tutor

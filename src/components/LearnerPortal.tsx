@@ -158,21 +158,21 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
   if (!activeLearner || !portalData) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 py-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
             <QrCode className="h-4 w-4" />
             <span>{institution.nama} · Akses Mandiri Peserta Didik</span>
           </div>
-          <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Portal Mandiri Warga Belajar
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Masuk menggunakan ID Kartu QR atau NISN beserta PIN 4 digit untuk melihat nilai, mengunduh materi Drive, mengerjakan remidial, dan mengajukan izin.
           </p>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 ID Kartu / NISN / Tautan QR
               </label>
               <input
@@ -181,12 +181,12 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="Contoh: WB-2026-004 atau 0115509834"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3.5 py-2.5 font-mono text-sm focus:border-blue-600 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 PIN Akses (4 Digit)
               </label>
               <div className="relative mt-1">
@@ -197,13 +197,13 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
                   placeholder="••••"
-                  className="w-full rounded-lg border border-slate-200 py-2.5 pr-3.5 pl-10 font-mono text-sm focus:border-blue-600 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pr-3.5 pl-10 font-mono text-sm focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
             </div>
 
             {loginError && (
-              <p className="text-xs font-medium text-red-700">{loginError}</p>
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">{loginError}</p>
             )}
 
             <button
@@ -215,8 +215,8 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
           </form>
 
           {/* Quick Demo Access for Evaluation */}
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="text-xs font-semibold text-slate-600">
+          <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
               Akses Cepat Uji Coba Warga Belajar ({institution.nama}):
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -229,10 +229,10 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                     setPinInput(l.pin);
                     setLoggedInLearnerId(l.id);
                   }}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-left text-xs hover:bg-slate-100"
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-left text-xs hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
                 >
-                  <span className="font-semibold text-slate-900">{l.nama}</span>
-                  <span className="ml-1.5 font-mono text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{l.nama}</span>
+                  <span className="ml-1.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                     ({l.id} · PIN {l.pin})
                   </span>
                 </button>
@@ -247,40 +247,40 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
   return (
     <div className="space-y-6">
       {/* Logged-in Header */}
-      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
         <div>
-          <p className="font-mono text-xs text-slate-500 tabular-nums">
+          <p className="font-mono text-xs text-slate-500 tabular-nums dark:text-slate-400">
             {activeLearner.id} · NISN {activeLearner.nisn} ·{' '}
             {activeLearner.program} ({activeLearner.rombel})
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
             Selamat Datang, {activeLearner.nama}
           </h1>
-          <p className="mt-0.5 text-xs text-slate-600">
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
             Tutor Pembimbing: {activeLearner.tutorNama}
           </p>
         </div>
         <button
           type="button"
           onClick={() => setLoggedInLearnerId(null)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Keluar Portal</span>
         </button>
       </div>
 
-      {/* In-App Remedial Alert Banner (Addresses low Gmail open rate) */}
+      {/* In-App Remedial Alert Banner */}
       {portalData.myRemedials.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-5">
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/30">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
               <div>
-                <h2 className="text-sm font-bold text-amber-950">
+                <h2 className="text-sm font-bold text-amber-950 dark:text-amber-200">
                   Tugas Remidial Otomatis Tersedia ({portalData.myRemedials.length})
                 </h2>
-                <p className="mt-0.5 text-xs text-amber-900">
+                <p className="mt-0.5 text-xs text-amber-900 dark:text-amber-300">
                   Sistem mendeteksi capaian evaluasi sebelumnya di bawah KKM dan menerbitkan soal remidial khusus untuk Anda selesaikan.
                 </p>
               </div>
@@ -304,32 +304,32 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
 
       {/* Personal Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs text-slate-500">Kehadiran Saya</p>
-          <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Kehadiran Saya</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {portalData.attRate}%
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {portalData.hadir} dari {portalData.totalAtt} pertemuan
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs text-slate-500">Evaluasi Diselesaikan</p>
-          <p className="mt-1 font-mono text-2xl font-bold text-blue-700 tabular-nums">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Evaluasi Diselesaikan</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-blue-700 tabular-nums dark:text-blue-400">
             {portalData.myAttempts.length}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Target KKM pribadi: {activeLearner.targetKompetensi} poin
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs text-slate-500">Modul Program Tersedia</p>
-          <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Modul Program Tersedia</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-slate-900 tabular-nums dark:text-slate-100">
             {portalData.myModules.length}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Pembelajaran mandiri berbasis modul
           </p>
         </div>
@@ -339,11 +339,11 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left: Quizzes & Attempt History */}
         <div className="space-y-6 lg:col-span-7">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-base font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Evaluasi & Soal Remidial Saya
             </h2>
-            <div className="mt-4 divide-y divide-slate-200">
+            <div className="mt-4 divide-y divide-slate-200 dark:divide-slate-800">
               {portalData.myQuizzes.map((q) => (
                 <div
                   key={q.id}
@@ -351,16 +351,16 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-900 text-sm">
+                      <span className="font-semibold text-slate-900 text-sm dark:text-slate-100">
                         {q.judul}
                       </span>
                       {q.isRemedial && (
-                        <span className="text-[11px] font-semibold text-red-700">
+                        <span className="text-[11px] font-semibold text-red-700 dark:text-red-400">
                           [Remidial]
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       {q.mataPelajaran} · {q.modePembelajaran} · {q.soal.length}{' '}
                       soal · KKM {q.targetNilai}
                     </p>
@@ -378,26 +378,26 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-base font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Riwayat Nilai Evaluasi Saya
             </h2>
             {portalData.myAttempts.length === 0 ? (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                 Belum ada riwayat evaluasi yang dikerjakan.
               </p>
             ) : (
-              <div className="mt-3 divide-y divide-slate-200">
+              <div className="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
                 {portalData.myAttempts.map((at) => (
                   <div
                     key={at.id}
                     className="flex items-center justify-between py-3 text-xs"
                   >
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">
                         {at.quizJudul}
                       </p>
-                      <p className="mt-0.5 text-slate-500 font-mono tabular-nums">
+                      <p className="mt-0.5 text-slate-500 font-mono tabular-nums dark:text-slate-400">
                         {at.tanggalPengerjaan.slice(0, 10)} ·{' '}
                         <Clock className="inline h-3 w-3" />{' '}
                         {Math.floor(at.totalDurasiDetik / 60)}m{' '}
@@ -407,7 +407,9 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                     <div className="text-right font-mono tabular-nums">
                       <span
                         className={`text-sm font-bold ${
-                          at.tuntas ? 'text-emerald-700' : 'text-red-700'
+                          at.tuntas
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-red-700 dark:text-red-400'
                         }`}
                       >
                         {at.skor}
@@ -415,12 +417,12 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                       <span className="text-slate-400">/{at.targetNilai}</span>
                       <div className="text-[11px]">
                         {at.tuntas ? (
-                          <span className="text-emerald-700">
+                          <span className="text-emerald-700 dark:text-emerald-400">
                             <CheckCircle2 className="mr-0.5 inline h-3 w-3" />
                             Tuntas
                           </span>
                         ) : (
-                          <span className="text-red-700">Perlu Remidial</span>
+                          <span className="text-red-700 dark:text-red-400">Perlu Remidial</span>
                         )}
                       </div>
                     </div>
@@ -433,21 +435,21 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
 
         {/* Right: Materi Google Drive & Pengajuan Izin Mandiri */}
         <div className="space-y-6 lg:col-span-5">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="text-base font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Materi Modul & Arsip Google Drive
             </h2>
             <div className="mt-3 space-y-2.5 text-xs">
               {portalData.myModules.map((mod) => (
                 <div
                   key={mod.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 p-3"
+                  className="flex items-center justify-between rounded-lg border border-slate-200 p-3 dark:border-slate-800"
                 >
                   <div className="min-w-0 pr-2">
-                    <p className="font-semibold text-slate-900 truncate">
+                    <p className="font-semibold text-slate-900 truncate dark:text-slate-100">
                       {mod.judul}
                     </p>
-                    <p className="text-slate-500">
+                    <p className="text-slate-500 dark:text-slate-400">
                       {mod.bobotSkk} SKK · {mod.materiNama || 'Materi Modul'}
                     </p>
                   </div>
@@ -456,7 +458,7 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                       href={mod.materiDriveUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline shrink-0"
+                      className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline shrink-0 dark:text-blue-400"
                     >
                       <BookOpen className="h-3.5 w-3.5" />
                       <span>Unduh</span>
@@ -468,10 +470,10 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-2">
-              <CalendarPlus className="h-4 w-4 text-blue-700" />
-              <h2 className="text-base font-semibold text-slate-900">
+              <CalendarPlus className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 Pengajuan Izin / Sakit Mandiri
               </h2>
             </div>
@@ -479,7 +481,7 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
             <form onSubmit={handleLeaveSubmit} className="mt-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Tanggal
                   </label>
                   <input
@@ -487,11 +489,11 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                     required
                     value={leaveDate}
                     onChange={(e) => setLeaveDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs"
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Jenis
                   </label>
                   <select
@@ -499,7 +501,7 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                     onChange={(e) =>
                       setLeaveType(e.target.value as 'Izin' | 'Sakit')
                     }
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs"
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   >
                     <option value="Izin">Izin</option>
                     <option value="Sakit">Sakit</option>
@@ -508,7 +510,7 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Alasan Singkat
                 </label>
                 <textarea
@@ -517,36 +519,36 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
                   placeholder="Tuliskan keterangan izin atau sakit..."
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
 
               {leaveSentMsg && (
-                <p className="text-xs font-medium text-emerald-700">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   {leaveSentMsg}
                 </p>
               )}
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-slate-900 py-2 text-xs font-medium text-white hover:bg-slate-800"
+                className="w-full rounded-lg bg-slate-900 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-blue-700 dark:hover:bg-blue-600"
               >
                 Kirim Pengajuan Izin
               </button>
             </form>
 
             {portalData.myLeaveRequests.length > 0 && (
-              <div className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-xs">
-                <p className="font-semibold text-slate-700">
+              <div className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800">
+                <p className="font-semibold text-slate-700 dark:text-slate-300">
                   Riwayat Pengajuan Saya:
                 </p>
                 {portalData.myLeaveRequests.map((lr) => (
                   <div
                     key={lr.id}
-                    className="flex items-center justify-between rounded border border-slate-200 px-3 py-2"
+                    className="flex items-center justify-between rounded border border-slate-200 px-3 py-2 dark:border-slate-800 dark:text-slate-300"
                   >
                     <div>
-                      <span className="font-mono font-semibold text-slate-800">
+                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                         {lr.tanggal}
                       </span>{' '}
                       · {lr.jenis}
@@ -554,10 +556,10 @@ export const LearnerPortal: React.FC<LearnerPortalProps> = ({
                     <span
                       className={
                         lr.status === 'Disetujui'
-                          ? 'font-semibold text-emerald-700'
+                          ? 'font-semibold text-emerald-700 dark:text-emerald-400'
                           : lr.status === 'Ditolak'
-                          ? 'font-semibold text-red-700'
-                          : 'font-semibold text-amber-700'
+                          ? 'font-semibold text-red-700 dark:text-red-400'
+                          : 'font-semibold text-amber-700 dark:text-amber-400'
                       }
                     >
                       {lr.status}
